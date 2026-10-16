@@ -30,8 +30,6 @@ data class AgentStepGroup(
     val steps: List<AgentStep> = emptyList(),
     val collapsed: Boolean = false
 ) {
-    val runningCount: Int get() = steps.count { it.status == AgentStepStatus.RUNNING }
-    val completedCount: Int get() = steps.count { it.status == AgentStepStatus.SUCCESS }
 }
 
 /** Store kecil berbasis StateFlow; runner dapat mengirim event tanpa bergantung pada UI. */

@@ -1,16 +1,11 @@
 package com.kita.agent
 
-import android.app.AlertDialog
 import java.io.File
 import java.util.UUID
-import java.util.concurrent.LinkedBlockingQueue
 import org.json.JSONObject
 
 // Eksekusi alat: persetujuan perintah, catatan, mode baca-saja, runTool.
 // Fungsi-fungsi di sini adalah ekstensi MainActivity (dipecah dari MainActivity.kt).
-
-/** Approval hanya boleh dilewati setelah opt-in mode otonom atau tombol "Ya, semua". */
-internal fun bypassesApproval(allowAll: Boolean, autonomous: Boolean): Boolean = allowAll || autonomous
 
 /** True hanya untuk perintah baca-saja yang jelas aman. Ragu sedikit pun -> minta persetujuan. */
 internal fun MainActivity.isReadOnly(cmd: String): Boolean {
@@ -33,11 +28,6 @@ internal fun MainActivity.isReadOnly(cmd: String): Boolean {
 
 internal fun MainActivity.readOnlyMode() = prefs.getBoolean("readonly", false)
 
-/**
- * Minta persetujuan. Untuk perintah (cmd != null) tampil dialog dengan label risiko;
- * "Ya, semua" hanya ada dan hanya berlaku untuk perintah baca saja.
- * Untuk aksi lain (tulis file) selalu bertanya, tidak pernah dilewati oleh "Ya, semua".
- */
 /**
  * Persetujuan lewat dialog. Tidak ada tindakan yang ditolak otomatis: area sensitif hanya diberi peringatan merah.
  * "Ya, semua" berlaku untuk sisa tugas ini. Tanpa jawaban dalam 10 menit dianggap tidak.

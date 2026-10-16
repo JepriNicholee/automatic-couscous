@@ -3,7 +3,6 @@ package com.kita.agent
 import android.content.Context
 import android.content.Intent
 import android.view.inputmethod.InputMethodManager
-import android.widget.LinearLayout
 import org.json.JSONObject
 
 // Loop agen: kirim pesan, jalankan worker, panggil model, jalankan alat, berhenti.
@@ -191,6 +190,15 @@ internal fun MainActivity.statusFor(name: String, args: JSONObject): String {
 }
 
 
+/**
+ * Judul langkah untuk baris status live: kalimat 'deskripsi' yang ditulis AI sendiri (mis. "Memeriksa isi arsip ZIP")
+ * agar pengguna melihat apa yang sebenarnya dikerjakan; bila kosong/terlalu pendek, pakai judul generik statusFor().
+ */
+internal fun MainActivity.stepTitleFor(name: String, args: JSONObject): String {
+    val d = tidyLine(args.optString("deskripsi"), 90)
+    return if (d.length >= 6) d else statusFor(name, args)
+}
+
 internal fun MainActivity.detailFor(name: String, args: JSONObject): String =
     if (name == "write_file") {
         args.optString("path") + "\n\n" + args.optString("content").take(1500)
@@ -217,7 +225,7 @@ internal fun MainActivity.agentLoop(
         synchronized(hist) { hist.add(Hist(0, userMsg, images = images)) }
         saveHist()
     }
-    if (addUser && prefs.getBoolean("understand", true)) {
+    if (addUser && prefs.getBoolean("understand", false)) {
         val brief = try { understandTask(key, userMsg) } catch (e: Cancelled) { throw e } catch (e: Exception) { Brief.Kosong }
         when (brief) {
             is Brief.Paham -> taskBrief = brief.text
@@ -233,7 +241,6 @@ internal fun MainActivity.agentLoop(
     var prevOutSig = ""
     val errTracker = ErrorTracker()
     var verifyNudges = 0
-    var planNudges = 0
     while (true) {
         if (cancelled) throw Cancelled()
         if (++turns > MAX_AGENT_TURNS) {
@@ -296,16 +303,6 @@ internal fun MainActivity.agentLoop(
         if (turn.calls.isEmpty()) {
             runLog.finalText = turn.text
             // Jangan anggap selesai bila build terakhir gagal / kode diubah tanpa build berhasil (maks MAX_VERIFY_NUDGES kali).
-            // Model menyatakan rencana tetapi belum menjalankan satu tool pun: beri kesempatan sekali lagi.
-            // Keputusan tetap di agen: bertindak jika perlu, atau jelaskan jawabannya jika memang tidak perlu tindakan.
-            if (runLog.steps.isEmpty() && planNudges < 1 && !cancelled) {
-                planNudges++
-                synchronized(hist) {
-                    hist.add(Hist(0, "Kamu belum menjalankan langkah apa pun untuk permintaan ini. Jika permintaan memerlukan tindakan, lanjutkan sekarang dengan tool. Jika tidak perlu tindakan, jelaskan jawabannya."))
-                }
-                saveHist()
-                continue
-            }
             agentState = AgentState.Verifying
             saveAgentCheckpoint(AgentCheckpoint(agentTaskId, userMsg, turns, "", "verifying"))
             val nudge = if (verifyNudges < MAX_VERIFY_NUDGES && !cancelled) verificationNudge(runLog.steps) else null
@@ -331,7 +328,7 @@ internal fun MainActivity.agentLoop(
             if (cancelled) throw Cancelled()
             agentState = AgentState.RunningTool(c.name)
             saveAgentCheckpoint(AgentCheckpoint(agentTaskId, userMsg, turns, c.name, "running_tool"))
-            val title = statusFor(c.name, c.args)
+            val title = stepTitleFor(c.name, c.args)
             val card = onUi {
                 val icon = iconFor(c.name, c.args, title)
                 val detail = detailFor(c.name, c.args)

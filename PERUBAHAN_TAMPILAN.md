@@ -27,3 +27,34 @@ Logika agen, penyedia model, dan keamanan tidak diubah.
 - Diubah: Palette, MainActivity, ChatMessages, Markdown, MessageMenu, ActivityZone, AgentStepList, StatusBar,
   SettingsDialog, ModelPicker, ApprovalDialog, ChatControls, ModelCall/ToolExecution (hanya teks tombol), styles/colors/dialog_bg.
 - Belum dikompilasi di lingkungan penyusunan: jalankan WITH_TESTS=1 bash build-termux.sh.
+
+## AI bekerja mandiri (v2.3)
+- Prompt sistem ditulis ulang: dari sekitar 30 aturan kaku menjadi satu paragraf pendek. Isinya hanya fakta lingkungan
+  (Termux, folder kerja, alat, folder lampiran) dan kebiasaan yang meningkatkan mutu kerja (pahami tujuan, baca dulu,
+  belajar dari kegagalan, periksa hasil, lapor jujur). Keputusan bertindak atau menjawab ada di AI.
+- Dihapus: pesan dorongan tersembunyi "Kamu belum menjalankan langkah apa pun..." (AgentLoop).
+- Tahap "Memahami permintaan" kini mati secara bawaan (pengaturan "understand" = false); hemat satu panggilan model per pesan.
+- Tetap ada: dialog persetujuan, mode hanya baca/sandbox/otonom, pengingat verifikasi build (maks 2 kali).
+
+## Baris status live + terminal live (v2.5)
+Tujuan: satu baris status yang bersih seperti di aplikasi Claude, dan kode/perintah AI bisa dilihat langsung saat diketuk.
+
+- Pil abu + daftar langkah lama diganti `LiveStatusLine` (LiveStatusLine.kt): ikon, teks berkilau, panah.
+  - Ikon berganti sesuai kerja AI: titik oranye mengorbit saat berpikir; saat menjalankan langkah ikon mengikuti jenisnya
+    (baca, cari, tulis, build = roda gigi berputar, arsip, unduh, uji, ...). Ikon baru muncul dengan efek membal.
+  - Teks berkilau abu-ke-gelap, naik-memudar saat berganti, dipotong "..." sebelum panah. Tahan 0,7 detik agar tidak berkedip (TextGate).
+  - Teks langkah kini memakai kalimat `deskripsi` yang ditulis AI sendiri (mis. "Memeriksa isi arsip ZIP"), bukan judul generik.
+  - Saat selesai: ikon centang hijau / silang merah / dll, teks diam ("Berhasil - 3 langkah"). Panah tetap bisa dibuka untuk meninjau.
+- Ketuk baris -> terminal gelap terbuka dengan animasi tinggi + pudar (`LiveTerminal`):
+  - Perintah diberi prompt `$` dan diwarnai (perintah cyan, opsi oranye, string hijau, operator ungu, variabel kuning).
+  - Keluaran mengalir baris demi baris (efek ketik) dan diwarnai: `> Task` redup, `BUILD SUCCESSFUL` hijau, error merah, warning kuning,
+    angka oranye, path ungu. Kursor hijau berkedip selama perintah jalan.
+  - Tulis file: path + isi bernomor dengan warna kode; setelah selesai tampil diff (+ hijau, - merah).
+  - Deretan chip langkah (geser samping): ketuk untuk melihat langkah lain; ketuk chip terakhir untuk kembali mengikuti live.
+  - Tombol Salin (salin isi terminal), Besar/Kecil (tinggi 250 / 460 dp), penghitung waktu berjalan, tombol Setuju/Tolak saat menunggu izin.
+  - Tekan lama judul terminal -> panel komputer lengkap (seperti sebelumnya).
+  - Gulir otomatis mengikuti keluaran terbaru; bila pengguna menggulir ke atas, tidak ditarik turun.
+- Pembacaan keluaran live (`LiveTail`) dipercepat dari 2,5 dtk ke 1,5 dtk (build tetap 5 dtk).
+- Baru: LiveStatusLine.kt (tampilan), TerminalLex.kt (pewarnaan murni, teruji), test TerminalLexTest.kt.
+- Diubah: ActivityZone.kt (memakai LiveStatusLine), AgentLoop.kt (`stepTitleFor`), LiveTail.kt (interval).
+- Belum dikompilasi di lingkungan penyusunan: jalankan WITH_TESTS=1 bash build-termux.sh.
