@@ -8,12 +8,12 @@ class ApprovalPolicyTest {
     @Test
     fun instalasiBaruTidakMelewatiConfirm() {
         // Default prefs autonomous=false dan allowAll=false harus masuk ke confirm().
-        assertFalse(bypassesApproval(allowAll = false, autonomous = false))
+        assertFalse(bypassesApproval(allowAll = false, autonomous = false, force = false))
     }
 
     @Test
     fun modeOtonomHanyaMelewatiConfirmSetelahOptIn() {
-        assertTrue(bypassesApproval(allowAll = false, autonomous = true))
-        assertTrue(bypassesApproval(allowAll = true, autonomous = false))
+        assertTrue(bypassesApproval(allowAll = false, autonomous = true, force = false))
+        assertTrue(bypassesApproval(allowAll = true, autonomous = false, force = false))
     }
 }

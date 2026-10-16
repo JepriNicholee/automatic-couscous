@@ -7,15 +7,6 @@ import java.util.Locale
 
 internal enum class StepState { RUNNING, WAITING, OK, FAIL, DENIED, STOPPED }
 
-/** Snapshot aktivitas yang aman ditampilkan kepada pengguna; tidak memuat chain-of-thought model. */
-internal data class ActivityHistoryEntry(
-    val title: String,
-    val state: StepState,
-    val detail: String,
-    val durationMs: Long,
-    val percent: Int?
-)
-
 /** Batas kartu langkah yang tampil sekaligus. Langkah ke-3 muncul -> yang tertua keluar ke atas, dan seterusnya. */
 internal const val MAX_VISIBLE_ROWS = 2
 

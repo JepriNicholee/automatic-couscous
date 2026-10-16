@@ -56,6 +56,6 @@ internal class LiveTail(
     }
 
     companion object {
-        const val POLL_MS = 2500L
+        const val POLL_MS = 1500L
     }
 }

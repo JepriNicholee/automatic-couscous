@@ -137,7 +137,6 @@ internal fun MainActivity.forceScrollDown() {
     scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
 }
 
-
 /**
  * Penghitung waktu jujur: setelah 3 detik di fase yang sama, judul diberi lama tunggu nyata
  * ("Menunggu respons model AI · 12 dtk"). Tidak ada teks karangan tentang apa yang "sedang terjadi".

@@ -10,7 +10,6 @@ internal const val AI = 1
 internal const val KIND_HIDE = -3 // penanda: sembunyikan baris status
 internal const val KIND_DOTS = -1 // penanda: tampilkan titik animasi sebagai ikon status
 
-
 /** Penanda pada tampilan pesan: siapa pengirimnya dan teks mentahnya (untuk menu tekan-lama). */
 internal class MsgMeta(val role: Int, var text: String)
 

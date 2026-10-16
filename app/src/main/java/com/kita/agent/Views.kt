@@ -3,7 +3,6 @@ package com.kita.agent
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.DashPathEffect
 import android.graphics.LinearGradient
 import android.graphics.Matrix
@@ -363,7 +362,6 @@ class DotsView(ctx: Context, dotColor: Int = 0xFF000000.toInt()) : View(ctx) {
         }
     }
 }
-
 
 /** Teks dengan efek kilau yang bergerak (shimmer) saat aktif. */
 class ShimmerText(ctx: Context) : TextView(ctx) {

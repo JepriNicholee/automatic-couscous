@@ -15,7 +15,9 @@ judul di bagian atas yang menjelaskan isinya.
 ## Tampilan chat
 - ActivityFeed.kt   : wadah kartu tetap (maks 2 kartu, animasi masuk/geser/keluar 420 ms), kartu langkah + bar progres
 - ActivityModel.kt  : logika murni teruji: antrean kartu, progres NYATA dari keluaran, penjaga teks tengah, RunLog + laporan akhir
-- ActivityZone.kt   : panel tetap di bawah header: wadah kartu + area tengah (satu baris teks dinamis / laporan akhir)
+- ActivityZone.kt   : wadah di bawah chat: memegang LiveStatusLine (baris status + terminal live) dan feed kartu tersembunyi
+- LiveStatusLine.kt : baris status live (ikon animasi + teks berkilau + panah) dan terminal live yang terbuka saat diketuk
+- TerminalLex.kt    : pewarnaan terminal murni (bash, kode, keluaran), penyusunan baris langkah, pencocokan keluaran tail (teruji)
 - StatusBar.kt      : baris status fase (mengirim / menunggu / menulis) di bawah chat
 - ChatMessages.kt   : menambah gelembung pesan, catatan, kartu APK/undo
 - MessageMenu.kt    : menu tekan-lama (salin, ulangi, edit) dan chip saran

@@ -34,10 +34,6 @@ internal object Palette {
     val BORDER = 0xFFE4E7F0.toInt()
     val CODE_BG = 0xFF0F172A.toInt()
 
-    // Kartu pil langkah agen (satu pil per langkah)
-    val PILL_FILL = 0xFFEAEBEE.toInt()
-    val PILL_STROKE = 0xFFD0D3DA.toInt()
-
     // Tampilan chat gaya Gemini
     val INK = 0xFF1F1F1F.toInt()        // ikon dan teks utama
     val INK_SOFT = 0xFF6B7280.toInt()   // petunjuk, teks sekunder, panah

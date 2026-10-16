@@ -14,8 +14,6 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.animation.LinearInterpolator
-import android.view.animation.PathInterpolator
-import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -25,9 +23,6 @@ import android.widget.TextView
 // Kartu yang sudah keluar dari tampilan tetap menjalankan tugasnya (baris tetap diperbarui, hanya tidak digambar).
 // Kartu jenis unduhan / instalasi / build menampilkan persentase + bar progres HANYA dari keluaran nyata perintah.
 // Logika murni (status, progres, antrean) ada di ActivityModel.kt supaya bisa diuji; berkas ini hanya tampilan.
-
-internal const val CARD_H_DP = 62
-internal const val CARD_GAP_DP = 10
 
 private fun markColorOf(state: StepState, accent: Int): Int = when (state) {
     StepState.RUNNING -> accent
@@ -124,7 +119,6 @@ internal class StatusMark(ctx: Context) : View(ctx) {
         }
     }
 }
-
 
 /** Bar progres tipis. Determinate = lebar mengikuti angka NYATA; tak-tentu = segmen bergerak tanpa angka; selesai = penuh lalu memudar. */
 internal class ProgressBarView(ctx: Context) : View(ctx) {
@@ -317,14 +311,6 @@ internal class FeedRow(
         refresh()
     }
 
-    fun snapshot(now: Long = System.currentTimeMillis()): ActivityHistoryEntry =
-        ActivityHistoryEntry(
-            title = title,
-            state = state,
-            detail = detailCs.toString(),
-            durationMs = if (isLive) now - startedAt else durMs,
-            percent = percent
-        )
 }
 
 /** Timeline terbuka: semua langkah tetap terlihat, panel menggulir sendiri, dan langkah terbaru disorot. */
@@ -337,7 +323,6 @@ internal class ActivityFeed(private val act: MainActivity) : ScrollView(act) {
     private var sealed = false
     private val handler = Handler(Looper.getMainLooper())
     private var ticking = false
-    val fixedHeight: Int = act.dp(248)
     val cardCount: Int get() = all.size
 
     init {
@@ -346,8 +331,6 @@ internal class ActivityFeed(private val act: MainActivity) : ScrollView(act) {
         setBackgroundColor(android.graphics.Color.TRANSPARENT)
         addView(timeline, LayoutParams(MATCH, WRAP))
     }
-
-    fun historySnapshot(): List<ActivityHistoryEntry> = all.map { it.snapshot() }
 
     private val ticker = object : Runnable {
         override fun run() {
@@ -418,50 +401,6 @@ internal class ActivityFeed(private val act: MainActivity) : ScrollView(act) {
 // ---------------------------------------------------------------- Penghubung ke MainActivity
 
 internal fun MainActivity.feedForNewStep(): ActivityFeed = zone.feed
-
-internal fun MainActivity.showActivityHistory() {
-    val entries = zone.feed.historySnapshot()
-    if (entries.isEmpty()) { toast("Belum ada aktivitas") ; return }
-    val box = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(dp(20), dp(8), dp(20), dp(8))
-    }
-    entries.forEachIndexed { index, e ->
-        val symbol = when (e.state) {
-            StepState.RUNNING -> "◌"
-            StepState.WAITING -> "◷"
-            StepState.OK -> "✓"
-            StepState.FAIL -> "×"
-            StepState.DENIED -> "⊘"
-            StepState.STOPPED -> "—"
-        }
-        val status = when (e.state) {
-            StepState.RUNNING -> "berjalan"
-            StepState.WAITING -> "menunggu"
-            StepState.OK -> "berhasil"
-            StepState.FAIL -> "gagal"
-            StepState.DENIED -> "ditolak"
-            StepState.STOPPED -> "dibatalkan"
-        }
-        val title = TextView(this).apply {
-            text = "$symbol  ${index + 1}. ${e.title} · $status"
-            textSize = 15f
-            setTextColor(if (e.state == StepState.FAIL) Palette.RED else Palette.TEXT_MAIN)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        }
-        val detail = TextView(this).apply {
-            val pct = e.percent?.let { " · $it%" } ?: ""
-            text = "${fmtDur(e.durationMs)}$pct" + if (e.detail.isBlank()) "" else "\n${e.detail.take(600)}"
-            textSize = 12f
-            setTextColor(Palette.TEXT_SOFT)
-            setPadding(dp(24), dp(3), 0, dp(10))
-        }
-        box.addView(title)
-        box.addView(detail)
-    }
-    val scroll = ScrollView(this).apply { addView(box) }
-    AlertDialog.Builder(this).setTitle("Riwayat aktivitas AI").setView(scroll).setPositiveButton("Tutup", null).show()
-}
 
 /** Tutup feed yang sedang berjalan. Panggil di thread UI. */
 internal fun MainActivity.sealFeed() {

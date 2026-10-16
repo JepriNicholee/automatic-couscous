@@ -14,8 +14,6 @@ import android.widget.TextView
 // Panel aktivitas AI: header ringkas, timeline yang bisa digulir, status aktif, dan laporan akhir.
 // Teks status tetap berasal dari event nyata dan ditahan TextGate agar tidak berkedip.
 
-internal const val CENTER_H_DP = 132
-
 internal class CenterPanel(private val act: MainActivity) : FrameLayout(act) {
     private var gate = TextGate()
     private var reportShown = false
@@ -122,18 +120,6 @@ internal class CenterPanel(private val act: MainActivity) : FrameLayout(act) {
         }
     }
 
-    /** Satu baris penjelasan aktivitas. Teks yang sama diabaikan; perubahan beruntun ditahan agar tidak berkedip. */
-    fun showLine(raw: String, kind: Int = KIND_DOTS) {
-        if (reportShown) return
-        val t = tidyLine(raw)
-        if (t.isEmpty()) return
-        kindByText[t] = kind
-        val now = SystemClock.uptimeMillis()
-        gate.submit(t, now)?.let { applyLine(it) }
-        scheduleRelease()
-    }
-
-
     private fun scheduleRelease() {
         removeCallbacks(release)
         gate.nextDelay(SystemClock.uptimeMillis())?.let { postDelayed(release, it) }
@@ -210,70 +196,37 @@ internal class ActivityZone(private val act: MainActivity) : LinearLayout(act) {
     /** Feed tetap menyimpan detail untuk dialog, tetapi tidak lagi mengambil ruang layar utama. */
     val feed = ActivityFeed(act)
     val center = CenterPanel(act)
-    private val statusTv = TextView(act).apply {
-        textSize = 13.5f
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        setTextColor(Palette.INK)
-        setSingleLine(true)
-        ellipsize = TextUtils.TruncateAt.END
-        maxWidth = (act.resources.displayMetrics.widthPixels * 0.7f).toInt()
-    }
-    private val countTv = TextView(act).apply {
-        textSize = 11.5f
-        setTextColor(Palette.TEXT_SOFT)
-        setSingleLine(true)
-        visibility = View.GONE
-    }
-    private val stepList = AgentStepList(act).apply {
-        visibility = View.GONE
-        onStepClick = { step -> act.showComputerPanel(act.agentSteps.groups.value, step.id) }
-        onApprove = { act.confirmDialog?.getButton(AlertDialog.BUTTON_POSITIVE)?.performClick() }
-        onReject = { act.confirmDialog?.getButton(AlertDialog.BUTTON_NEGATIVE)?.performClick() }
-        onGroupToggle = { label ->
-            act.agentSteps.toggle(label)
-            renderSteps(act.agentSteps.groups.value)
-        }
-    }
-    private val compactRow = LinearLayout(act).apply {
-        orientation = HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        // Satu pil abu lembut yang membungkus isinya; ketuk untuk melihat langkah-langkahnya.
-        background = pressable(act.rounded(Palette.FIELD, 18))
-        setPadding(act.dp(12), act.dp(6), act.dp(14), act.dp(6))
-        minimumHeight = act.dp(36)
-        addView(DotsView(act, Palette.BRAND), LayoutParams(act.dp(18), act.dp(18)))
-        addView(statusTv, LayoutParams(WRAP, WRAP).apply { marginStart = act.dp(6) })
-        addView(countTv, LayoutParams(WRAP, WRAP))
-        setOnClickListener {
-            stepList.visibility = if (stepList.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-            if (stepList.visibility == View.VISIBLE) renderSteps(act.agentSteps.groups.value)
+
+    // Satu baris status live (ikon + teks berkilau + panah). Diketuk -> terminal live terbuka di bawahnya.
+    private val live = LiveStatusLine(act).apply {
+        terminal.onApprove = { this@ActivityZone.act.confirmDialog?.getButton(AlertDialog.BUTTON_POSITIVE)?.performClick() }
+        terminal.onReject = { this@ActivityZone.act.confirmDialog?.getButton(AlertDialog.BUTTON_NEGATIVE)?.performClick() }
+        terminal.onOpenFull = { step ->
+            val a = this@ActivityZone.act
+            a.showComputerPanel(a.agentSteps.groups.value, step.id)
         }
     }
 
     init {
         orientation = VERTICAL
         visibility = View.GONE
-        // Hanya satu baris terlihat di atas chat; timeline lengkap dibuka saat baris diketuk.
-        addView(compactRow, LayoutParams(WRAP, WRAP).apply {
+        addView(live, LayoutParams(MATCH, WRAP).apply {
             setMargins(0, act.dp(10), 0, act.dp(4))
         })
-        addView(stepList, LayoutParams(MATCH, WRAP))
     }
 
+    /** Perbarui terminal live dengan daftar langkah terbaru (perintah + keluaran yang mengalir). */
     fun renderSteps(groups: List<AgentStepGroup>) {
-        stepList.render(groups)
-        stepList.visibility = if (groups.isEmpty()) View.GONE else View.VISIBLE
-        countTv.text = ""
+        live.render(groups)
     }
 
-    fun showCompactLine(raw: String, _kind: Int = KIND_DOTS) {
-        statusTv.text = tidyLine(raw, 58)
-        countTv.text = ""
-        compactRow.alpha = 1f
+    /** Ganti teks status; [kind] menentukan ikon (KIND_DOTS = titik berpikir, selain itu ikon IconView.*). */
+    fun showCompactLine(raw: String, kind: Int = KIND_DOTS) {
+        live.setLine(raw, kind)
     }
 
     fun refreshHistory() {
-        countTv.text = ""
+        // Riwayat kini hidup di terminal live; tidak ada penghitung terpisah.
     }
 
     fun reveal() {
@@ -286,8 +239,7 @@ internal class ActivityZone(private val act: MainActivity) : LinearLayout(act) {
         attachInline()
         feed.clear()
         center.reset()
-        stepList.visibility = View.GONE
-        showCompactLine("Sedang berpikir")
+        live.begin("Sedang berpikir")
         reveal()
     }
 
@@ -299,16 +251,21 @@ internal class ActivityZone(private val act: MainActivity) : LinearLayout(act) {
     }
 
     fun showReport(r: Report) {
-        val summary = r.summary.ifBlank { r.title }
-        // Ringkas: "Berhasil · 3 langkah" (ringkasan panjang sudah ada di jawaban AI).
-        showCompactLine(if (r.stats.isBlank()) r.title else "${r.title} · ${r.stats}")
+        // Ringkas: "Berhasil · 3 langkah" (ringkasan panjang sudah ada di jawaban AI). Ikon berhenti dan berwarna sesuai hasil.
+        val text = if (r.stats.isBlank()) r.title else "${r.title} · ${r.stats}"
+        val (kind, tint) = when (r.status) {
+            ReportStatus.SUCCESS -> Pair(IconView.CHECK, Palette.GREEN)
+            ReportStatus.FAILED -> Pair(IconView.CROSS, Palette.RED)
+            ReportStatus.STOPPED -> Pair(IconView.STOP, Palette.SLATE)
+            ReportStatus.UNVERIFIED -> Pair(IconView.CLOCK, Palette.AMBER)
+        }
+        live.finish(text, kind, tint)
     }
 
     fun reset() {
         feed.clear()
         center.reset()
-        stepList.visibility = View.GONE
-        compactRow.alpha = 1f
+        live.reset()
         visibility = View.GONE
         (parent as? android.view.ViewGroup)?.removeView(this)
     }

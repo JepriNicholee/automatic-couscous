@@ -24,9 +24,7 @@ internal data class ToolResult(
     val stdout: String = "",
     val stderr: String = "",
     val timedOut: Boolean = false,
-    val cancelled: Boolean = false,
-    val changedFiles: List<String> = emptyList(),
-    val verification: String? = null
+    val cancelled: Boolean = false
 ) {
     val ok: Boolean get() = !timedOut && !cancelled && exitCode == 0
     val errorKind: ErrorKind get() = when {
@@ -40,11 +38,6 @@ internal data class ToolResult(
         else -> ErrorKind.COMMAND_FAILED
     }
 
-    fun modelText(max: Int = 3000): String {
-        val body = listOf(stdout, stderr).filter { it.isNotBlank() }.joinToString("\n")
-        val shown = if (body.length <= max) body else body.take(max / 2) + "\n…(dipangkas)…\n" + body.takeLast(max / 2)
-        return "exit=${exitCode ?: 1}" + (if (timedOut) " timeout" else "") + "\n" + shown
-    }
 }
 
 internal fun parseToolResult(raw: String): ToolResult {

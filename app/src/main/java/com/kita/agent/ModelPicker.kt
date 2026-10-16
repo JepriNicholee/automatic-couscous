@@ -3,7 +3,6 @@ package com.kita.agent
 import android.app.AlertDialog
 import android.app.Dialog
 import android.graphics.Typeface
-import android.os.Build
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
