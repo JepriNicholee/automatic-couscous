@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MYTHOS</string>
+    <string name="cd_history">Menu</string>
+    <string name="cd_menu">Chat samaran</string>
+    <string name="cd_attach">Tambah lampiran atau templat</string>
+    <string name="cd_model">Pilih model AI</string>
+    <string name="cd_deep_off">Matikan penalaran mendalam</string>
+    <string name="cd_mic">Input suara</string>
+    <string name="cd_send">Kirim pesan</string>
+    <string name="cd_stop">Hentikan</string>
+    <string name="cd_scroll_down">Gulir ke bawah</string>
+</resources>
