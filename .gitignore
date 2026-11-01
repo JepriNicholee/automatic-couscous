@@ -1,5 +1,5 @@
 .gradle/
-build/
+/build/
 local.properties
 *.apk
 
@@ -11,3 +11,4 @@ keystore.properties
 # Berkas sementara tool build_apk
 .kita-*
 kita-setup.log
+/app/build/
