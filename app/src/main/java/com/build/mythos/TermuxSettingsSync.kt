@@ -194,42 +194,19 @@ internal fun MainActivity.pushTermuxSettings(): String {
 
 /** Baca-saja: status paket/CLI/auth asli di Termux. Tidak pernah mencetak token atau isi berkas kredensial. */
 private fun MainActivity.inspectTermuxSettings(): String {
-    val cmd = """
-        printf 'bridge='; [ -x ${sh("/data/data/com.termux/files/usr/bin/mythos-settings")} ] && echo installed || echo not_installed
-        printf 'config='; [ -f ${sh("$termuxHome/.config/mythos/android-app-sync-v1.properties")} ] && echo present || echo absent
-        printf 'gh='; command -v gh >/dev/null 2>&1 && echo available || echo missing
-        if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then echo gh_auth=connected; else echo gh_auth=not_connected; fi
-        for name in git node npm python3 java proot-distro gemini codex claude; do
-            if command -v "${'$'}name" >/dev/null 2>&1; then
-                case "${'$'}name" in
-                    git) version=${'$'}(git --version 2>/dev/null | head -n 1) ;;
-                    node) version=${'$'}(node --version 2>/dev/null | head -n 1) ;;
-                    npm) version=${'$'}(npm --version 2>/dev/null | head -n 1) ;;
-                    python3) version=${'$'}(python3 --version 2>&1 | head -n 1) ;;
-                    java) version=${'$'}(java -version 2>&1 | head -n 1) ;;
-                    proot-distro) version=available ;;
-                    *) version=${'$'}("${'$'}name" --version 2>&1 | head -n 1) ;;
-                esac
-                printf '%s=%s\n' "${'$'}name" "${'$'}{version:-available}"
-            else
-                printf '%s=missing\n' "${'$'}name"
-            fi
-        done
-        echo MYTHOS_SYNC_INSPECT_OK
-    """.trimIndent()
-    val result = termux(cmd, limit = 3500, timeoutSec = 30, useWorkdir = false, killable = false)
-    if (!result.startsWith("exit=0") || !result.contains("MYTHOS_SYNC_INSPECT_OK")) return "Termux belum dapat diperiksa.\n$result"
-    val details = result.substringAfter('\n').substringBefore("MYTHOS_SYNC_INSPECT_OK").trim()
-    return buildString {
-        appendLine("Koneksi Termux aktif.")
-        appendLine("Status autentikasi GitHub: ${if (details.lineSequence().any { it.trim() == "gh_auth=connected" }) "terhubung melalui gh CLI" else "belum terhubung / gh belum siap"}")
-        appendLine()
-        appendLine("Alat di Termux:")
-        details.lineSequence().filter { it.contains('=') && !it.startsWith("bridge=") && !it.startsWith("config=") && !it.startsWith("gh=") && !it.startsWith("gh_auth=") }
-            .forEach { appendLine("• $it") }
-        appendLine()
-        appendLine("Jembatan MYTHOS: ${if (details.lineSequence().any { it.trim() == "bridge=installed" }) "terpasang" else "belum terpasang (tekan Kirim ke Termux sekali)"}")
-    }.trim()
+    val helperPath = "/data/data/com.termux/files/usr/bin/mythos-settings"
+    val configPath = "$termuxHome/.config/mythos/android-app-sync-v1.properties"
+    val bridgeCommand = "if [ -x ${sh(helperPath)} ]; then printf installed; else printf not_installed; fi"
+    val configCommand = "if [ -f ${sh(configPath)} ]; then printf present; else printf absent; fi"
+    return TermuxSettingsInspector.inspect(bridgeCommand, configCommand) { command, timeoutSec ->
+        termuxDetailed(
+            command,
+            limit = 1000,
+            timeoutSec = timeoutSec,
+            useWorkdir = false,
+            killable = false
+        )
+    }
 }
 
 private fun MainActivity.pullTermuxSettings(): String {
