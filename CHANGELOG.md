@@ -1,5 +1,11 @@
 # Perubahan terbaru
 
+## 2.41 — Jembatan sinkronisasi pengaturan MYTHOS–Termux
+- Tambah pengaturan sinkronisasi dua arah untuk folder kerja, URL repository, penyedia aktif, dan nama model non-rahasia, memakai helper `mythos-settings` di Termux dan konfirmasi saat menarik perubahan ke aplikasi.
+- Setelah jembatan diaktifkan, penyimpanan pengaturan MYTHOS otomatis memperbarui metadata di Termux; perubahan Termux dapat diambil manual.
+- Status `gh auth` dan alat Termux diperiksa secara baca-saja tanpa menampilkan kredensial. Pemeriksaan proyek kini mengenali sesi `gh` Termux sebagai opsi autentikasi untuk build APK.
+- API key, token, kredensial CLI, dan signing key tidak pernah dimasukkan ke berkas sinkronisasi.
+
 ## 2.39 — Kalimat pembuka sebelum alat
 - Prompt sistem jalur API kini meminta satu kalimat pembuka sebelum alat dan temuan singkat sesudahnya (`API_NARRATION_GUIDE`). Versi 2.39 (kode 54).
 

@@ -159,6 +159,7 @@ internal fun MainActivity.showSettings() {
     var advOpen = false
     val reportBtn = linkRow("Salin laporan masalah") { copyReport() }
     val setupBtn = linkRow("Siapkan Termux") { showSetup() }
+    val syncTermuxBtn = linkRow("Sinkronisasi dua arah Termux") { showTermuxSettingsSync() }
     val connBtn = linkRow("Konektor: Email, Telegram, WhatsApp") { showConnectorHub() }
     val logBtn = linkRow("Catatan perintah") { startActivity(Intent(this, CommandLogActivity::class.java)) }
     var curLogin: CliLogin? = null
@@ -475,6 +476,14 @@ internal fun MainActivity.showSettings() {
         ed.putBoolean(Motion.PREF, motion.isChecked)
         ed.apply()
         bg { try { ensureWorkspaceLayout() } catch (ignored: Exception) { logQuiet("SettingsDialog.kt", ignored) } }
+        if (prefs.getBoolean("termux_sync_enabled", false)) {
+            bg {
+                val syncResult = try { pushTermuxSettings() } catch (e: Exception) { "Gagal: ${e.message}" }
+                if (!syncResult.startsWith("Berhasil:")) {
+                    runOnUiThread { toast("Sinkronisasi Termux gagal. Buka Pengaturan > Sinkronisasi dua arah Termux untuk memeriksa.") }
+                }
+            }
+        }
         applyMotion(this, prefs)
         if (!wantsAutonomous || prefs.getBoolean("autonomous_ack", false)) {
             prefs.edit().putBoolean("autonomous", wantsAutonomous).apply()
@@ -516,6 +525,7 @@ internal fun MainActivity.showSettings() {
         addView(loginBtn, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) })
         addView(divider(), LinearLayout.LayoutParams(MATCH, dp(1)).apply { topMargin = dp(18) })
         addView(connBtn)
+        addView(syncTermuxBtn)
         addView(logBtn)
         addView(reportBtn)
         addView(setupBtn)

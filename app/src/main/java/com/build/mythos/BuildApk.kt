@@ -12,7 +12,7 @@ internal object BuildApk {
     val SCRIPT: String = """#!/usr/bin/env bash
 # Build APK lewat GitHub Actions untuk tool build_apk (MYTHOS): git push, tunggu workflow, unduh APK.
 # Pemakaian: bash build-github.sh [folder-proyek]
-# Autentikasi memakai token GitHub dari Settings melalui GH_TOKEN; pengguna tidak perlu menjalankan login manual.
+# Autentikasi memakai token GitHub dari Settings (GH_TOKEN) atau sesi gh auth milik Termux.
 # Penanda di baris-baris terakhir keluaran: KITA_BUILD=ok|gagal, KITA_APK=<path>.
 set -u
 fail() { echo "[build_apk] GAGAL: ${'$'}*"; echo "KITA_BUILD=gagal"; exit 1; }
@@ -52,7 +52,7 @@ if [ -n "${'$'}MYTHOS_GH_TOKEN" ]; then
     fail "${'$'}AUTH_WHY"
   fi
 else
-  gh auth status >/dev/null 2>&1 || fail "Token GitHub belum diisi di Settings"
+  gh auth status >/dev/null 2>&1 || fail "Autentikasi GitHub belum tersedia. Isi Token GitHub di Settings atau jalankan gh auth login di Termux"
 fi
 
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || git init -q || fail "git init gagal"
