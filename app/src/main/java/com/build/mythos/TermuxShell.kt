@@ -38,7 +38,21 @@ internal fun MainActivity.termux(
     liveFile: String? = null,
     silentRetry: Boolean = false,
     liveStderrFile: String? = null
-): String {
+): String = termuxDetailed(
+    cmd, limit, timeoutSec, useWorkdir, killable, liveFile, silentRetry, liveStderrFile
+).toLegacyString(limit, timeoutSec)
+
+/** Structured form for callers that must distinguish stdout, stderr, exit status, and timeout. */
+internal fun MainActivity.termuxDetailed(
+    cmd: String,
+    limit: Int = 4000,
+    timeoutSec: Long = 600,
+    useWorkdir: Boolean = true,
+    killable: Boolean = true,
+    liveFile: String? = null,
+    silentRetry: Boolean = false,
+    liveStderrFile: String? = null
+): TermuxCommandResult {
     // Keluaran dapat ditulis ke file live. Untuk streaming Codex, stderr dipisah agar diagnostik
     // tidak pernah tercampur ke teks jawaban yang dibaca oleh UI.
     val runBody = if (liveFile != null) {
@@ -51,32 +65,31 @@ internal fun MainActivity.termux(
         "mkdir -p ${sh(termuxTmp)}; trap ${sh("rm -f $pidFile")} EXIT; echo \$\$ > ${sh(pidFile)}; "
     else ""
     val latch = CountDownLatch(1)
-    var out = "Tidak ada hasil."
+    var out = TermuxCommandResult(transportError = "Tidak ada hasil.")
+    var receiverRegistered = false
     val receiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             val b = i.getBundleExtra("result")
             if (b != null) {
-                val errmsg = b.getString("errmsg") ?: ""
-                val body = (b.getString("stdout") ?: "") + (b.getString("stderr") ?: "")
-                // Awal DAN akhir dipertahankan: error kompilasi pertama ada di awal, ringkasan di akhir.
-                val shown = if (body.length > limit) {
-                    val head = limit / 4
-                    "…(dipotong, ${body.length - limit} karakter di tengah dibuang)\n" + body.take(head) +
-                        "\n…\n" + body.takeLast(limit - head)
-                } else body
-                out = (if (errmsg.isNotEmpty()) "ERR: $errmsg\n" else "") +
-                    "exit=${b.getInt("exitCode")}\n" + shown
+                out = TermuxCommandResult(
+                    exitCode = b.getInt("exitCode"),
+                    stdout = b.getString("stdout") ?: "",
+                    stderr = b.getString("stderr") ?: "",
+                    serviceError = b.getString("errmsg")?.takeIf { it.isNotEmpty() }
+                )
             }
             latch.countDown()
         }
     }
     val filter = IntentFilter(action)
-    if (Build.VERSION.SDK_INT >= 33) {
-        registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-    } else {
-        registerReceiver(receiver, filter)
-    }
     try {
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(receiver, filter)
+        }
+        receiverRegistered = true
+
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or
             (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0)
         val pi = PendingIntent.getBroadcast(
@@ -96,6 +109,7 @@ internal fun MainActivity.termux(
             putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
             putExtra("com.termux.RUN_COMMAND_PENDING_INTENT", pi)
         }
+        val deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSec.coerceAtLeast(1L))
         var tries = 0
         var savedStatus: StatusSnap? = null
         while (true) {
@@ -104,27 +118,33 @@ internal fun MainActivity.termux(
                 break
             } catch (e: IllegalStateException) {
                 // Android 12+: aplikasi di latar belakang tidak boleh memulai service. Tunggu sampai dibuka lagi.
-                if (++tries > 300) throw e
+                val remainingNanos = deadlineNanos - System.nanoTime()
+                if (++tries > 300 || remainingNanos <= 0L) {
+                    if (killable) killRemote(pidFile)
+                    return TermuxCommandResult(timedOut = true)
+                }
                 if (savedStatus == null && !silentRetry) {
                     savedStatus = saveStatus()
                     setStatus(KIND_DOTS, "Buka aplikasi ini lagi agar perintah bisa jalan")
                 }
                 if (cancelled) throw InterruptedException()
-                Thread.sleep(2000)
+                val sleepMs = TimeUnit.NANOSECONDS.toMillis(remainingNanos).coerceIn(1L, 2000L)
+                Thread.sleep(sleepMs)
             }
         }
         savedStatus?.let { restoreStatus(it) }
-        if (!latch.await(timeoutSec, TimeUnit.SECONDS)) {
+        val remainingNanos = deadlineNanos - System.nanoTime()
+        if (remainingNanos <= 0L || !latch.await(remainingNanos, TimeUnit.NANOSECONDS)) {
             if (killable) killRemote(pidFile)
-            return timeoutResult(timeoutSec)
+            return TermuxCommandResult(timedOut = true)
         }
     } catch (e: InterruptedException) {
         if (killable) killRemote(pidFile)
         throw Cancelled()
     } catch (e: Exception) {
-        return "Gagal memanggil Termux: ${e.message}"
+        return TermuxCommandResult(transportError = e.message ?: e.javaClass.simpleName)
     } finally {
-        unregisterReceiver(receiver)
+        if (receiverRegistered) unregisterReceiver(receiver)
     }
     return out
 }

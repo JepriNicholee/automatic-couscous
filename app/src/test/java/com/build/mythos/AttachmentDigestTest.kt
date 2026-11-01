@@ -139,6 +139,11 @@ class AttachmentDigestTest {
         assertTrue(cmd.contains("'/h/a b.zip'"))
         assertTrue(cmd.contains("MYTHOS_UNZIP_DIR="))
         assertTrue(cmd.contains("unzip -o -q -d"))
+        val guarded = buildExtractCommand("/h/a.zip", "/h/MYTHOS/projects/aktif", "proj", "/h/MYTHOS/reference") { "'" + it + "'" }
+        assertTrue(guarded.contains("realpath -m"))
+        assertTrue(guarded.contains("[ -L \"\$d\" ]"))
+        assertTrue(guarded.contains("MYTHOS_REFERENCE_BLOCKED"))
+        assertTrue(guarded.indexOf("parent_real=\$(realpath") < guarded.indexOf("mkdir -p \"\$P\""))
         assertEquals("/h/MYTHOS/projects/aktif/proj-2", parseExtractDir("exit=0\nMYTHOS_UNZIP_DIR=/h/MYTHOS/projects/aktif/proj-2\n"))
         assertNull(parseExtractDir("exit=3\nMYTHOS_UNZIP=missing"))
     }

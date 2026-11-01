@@ -26,6 +26,7 @@ Penandatanganan rilis: salin `keystore.properties.example` menjadi `keystore.pro
 | Daftar alat agen, peta path, galat GitHub | `docs/PANDUAN_ALAT.md` |
 | Sandbox perintah | `docs/SANDBOX.md` |
 | Konektor email, Telegram, WhatsApp | `docs/KONEKTOR.md` |
+| Sinkronisasi pengaturan MYTHOS–Termux | `docs/SINKRONISASI_DUA_ARAH_TERMUX.md` |
 | Audit diri dan upgrade diri | `docs/SELF_UPGRADE.md` |
 | Tampilan dan animasi | `docs/PERUBAHAN_TAMPILAN.md` |
 | Audit kode dan status temuan | `docs/AUDIT_KODE_DAN_UNIT_TEST.md` |

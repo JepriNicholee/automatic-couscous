@@ -6,10 +6,10 @@ import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.TextView
 
-// Halaman "Proyek": folder kerja agen di MYTHOS/projects/aktif dan projects/arsip. Ekstensi MainActivity.
+// Halaman "Proyek": folder kerja agen di projects/aktif dan projects/arsip pada workspace terpilih.
 
-/** Folder induk proyek: folder kerja dari Pengaturan, atau ~/MYTHOS bila folder kerja diatur ke home. */
-internal fun MainActivity.workRoot(): String = (wdTarget(termuxHome) ?: "$termuxHome/MYTHOS").trimEnd('/')
+/** Folder induk proyek: workspace dari Pengaturan; default awalnya ~/MYTHOS. */
+internal fun MainActivity.workRoot(): String = workspaceRoot().trimEnd('/')
 
 internal fun MainActivity.homeShort(p: String): String = if (p.startsWith("$termuxHome/")) "~/" + p.removePrefix("$termuxHome/") else p
 
@@ -129,7 +129,8 @@ private class ProjectsPage(val a: MainActivity) {
         val dst = WorkspaceList.projectPath(root, p.name, !p.archived) ?: return
         bg {
             val r = try {
-                a.termux(
+                val blocked = a.referencePathsGuard(listOf(src, dst))
+                if (blocked != null) "exit=1 $blocked" else a.termux(
                     "if [ -e ${a.sh(dst)} ]; then echo EXISTS; else mkdir -p ${a.sh(dst.substringBeforeLast('/'))} && mv -- ${a.sh(src)} ${a.sh(dst)} && echo MOVED; fi",
                     useWorkdir = false, timeoutSec = 60
                 )
@@ -158,7 +159,8 @@ private class ProjectsPage(val a: MainActivity) {
         if (a.isProtectedReferencePath(path)) { a.toast("Folder ini terkunci"); return }
         bg {
             val r = try {
-                a.termux("rm -rf -- ${a.sh(path)} && echo DELETED", useWorkdir = false, timeoutSec = 120)
+                val blocked = a.referencePathGuard(path)
+                if (blocked != null) "exit=1 $blocked" else a.termux("rm -rf -- ${a.sh(path)} && echo DELETED", useWorkdir = false, timeoutSec = 120)
             } catch (e: Exception) { "gagal: ${e.message}" }
             val ok = r.contains("DELETED")
             if (ok) a.forgetArtifacts(a.artifactLogLoad().filter { it.path.startsWith("$path/") }.map { it.path })

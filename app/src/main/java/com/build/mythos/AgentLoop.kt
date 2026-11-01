@@ -610,7 +610,7 @@ internal fun MainActivity.agentLoop(
                     // adalah jawaban, bukan kegagalan kerja: jangan memicu protokol diagnosis.
                     if (countsAsFailure(command, structured.exitCode, structured.stdout)) failStreak++
                     if (failStreak >= FAIL_STREAK_PROTOCOL_AT) forModel += DEBUG_PROTOCOL
-                    // Log pusat MYTHOS/logs/error_summary.log: bahan analisis akar masalah untuk agen.
+                    // Log pusat logs/error_summary.log pada workspace aktif: bahan analisis akar masalah untuk agen.
                     logErrorSummary(c.name, structured.errorKind.name, structured.stdout.ifBlank { out })
                 }
                 if (verifyKind == VerificationKind.APK) lastBuildFailOut = out

@@ -74,7 +74,7 @@ internal fun MainActivity.activeAttNoteText(tools: Boolean = true): String {
     return activeAttNote(list, if (isLocalUrl(cfgBase())) 1200 else 4000, tools)
 }
 
-/** Hapus daftar lampiran aktif sebuah chat dan salinan file-nya di MYTHOS/attachments. Folder hasil ekstrak zip TIDAK dihapus (itu milik proyek). */
+/** Hapus daftar lampiran aktif sebuah chat dan salinan file-nya di folder attachments workspace. Folder hasil ekstrak zip TIDAK dihapus (itu milik proyek). */
 internal fun MainActivity.purgeChatAttachments(id: String) {
     val key = "att_$id"
     val list = try {
@@ -83,11 +83,15 @@ internal fun MainActivity.purgeChatAttachments(id: String) {
         emptyList()
     }
     prefs.edit().remove(key).apply()
-    val prefix = "$termuxHome/MYTHOS/attachments/"
-    val paths = list.map { it.path }.filter { it.startsWith(prefix) && !it.contains("..") }.distinct()
+    val allowedPrefixes = listOf("${workspaceRoot()}/attachments/", "$termuxHome/MYTHOS/attachments/").distinct()
+    val paths = list.map { it.path }.filter { path ->
+        !path.contains("..") && allowedPrefixes.any { path.startsWith(it) }
+    }.distinct()
     if (paths.isEmpty()) return
     bg {
         try {
+            val blocked = referencePathsGuard(paths)
+            if (blocked != null) throw IllegalStateException("Penghapusan lampiran diblokir: $blocked")
             termux("rm -f -- " + paths.joinToString(" ") { sh(it) }, limit = 500, timeoutSec = 30)
         } catch (ignored: Exception) {
             logQuiet("ActiveAttachments.kt", ignored)

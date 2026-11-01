@@ -11,7 +11,7 @@ internal object StudioProject {
 
     private fun b64(s: String): String = java.util.Base64.getEncoder().encodeToString(s.toByteArray(Charsets.UTF_8))
 
-    fun setupCommand(folder: String, appName: String, packageName: String): String {
+    fun setupCommand(folder: String, appName: String, packageName: String, workspaceLabel: String = "~/MYTHOS"): String {
         val root = "${appName.lowercase().replace(Regex("[^a-z0-9]+"), "-")}-studio"
         val files = linkedMapOf(
             "settings.gradle.kts" to """pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
@@ -130,7 +130,7 @@ Proyek ini dibuat oleh AI Software Engineering Studio.
 ## Alur kerja
 Ubah source -> jalankan test -> build APK debug.
 
-Catatan: kegagalan alat agen dicatat di MYTHOS/logs/error_summary.log.
+Catatan: kegagalan alat agen dicatat di $workspaceLabel/logs/error_summary.log.
 """,
             "info.json" to """{
   "name": "$appName",

@@ -21,8 +21,8 @@ android {
         applicationId = "com.build.mythos"
         minSdk = 26
         targetSdk = 34
-        versionCode = 55
-        versionName = "2.40"
+        versionCode = 56
+        versionName = "2.41"
     }
 
     signingConfigs {

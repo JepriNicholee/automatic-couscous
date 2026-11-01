@@ -39,20 +39,40 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      # Identitas penandatangan: bila rahasia ada, build ditandatangani keystore yang sama dengan di HP,
-      # sehingga APK dari sini bisa menimpa APK dari Termux (dan sebaliknya).
-      - name: Siapkan keystore
+      # APK debug wajib memakai signing key yang sama dengan APK MYTHOS 2.40.
+      # Jika secret tidak tersedia atau fingerprint salah, hentikan build agar tidak
+      # menghasilkan APK debug bertanda tangan lain yang tidak bisa memperbarui aplikasi lama.
+      - name: Siapkan dan verifikasi keystore MYTHOS
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
-          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ]; then
-            echo "$KEYSTORE_B64" | base64 -d > kita.jks
-            printf 'storeFile=kita.jks\nstorePassword=%s\nkeyAlias=kita\nkeyPassword=%s\n' "$KEYSTORE_PASSWORD" "$KEYSTORE_PASSWORD" > keystore.properties
-            echo "Keystore dipasang."
-          else
-            echo "Rahasia keystore tidak ada: APK memakai kunci debug bawaan (tidak bisa menimpa APK dari HP)."
+          set -euo pipefail
+          if [ -z "${KEYSTORE_B64:-}" ] || [ -z "${KEYSTORE_PASSWORD:-}" ]; then
+            echo "::error::GitHub Secrets KEYSTORE_B64 dan/atau KEYSTORE_PASSWORD belum tersedia."
+            exit 1
           fi
+
+          KEYSTORE_FILE="signing-key.p12"
+          KEY_ALIAS="androiddebugkey"
+          EXPECTED_SHA256="6D:7C:50:0F:41:CE:A2:E2:F7:02:35:7E:B8:47:88:DD:49:4E:06:F5:F1:2A:A3:4B:E7:B3:D2:CA:C1:13:F1:FF"
+
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$KEYSTORE_FILE"
+          test -s "$KEYSTORE_FILE"
+          chmod 600 "$KEYSTORE_FILE"
+
+          ACTUAL_SHA256="$(keytool -list -v -keystore "$KEYSTORE_FILE" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" 2>/dev/null | awk -F': ' '/SHA256:/{print $2; exit}')"
+          if [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
+            echo "::error::Fingerprint keystore tidak cocok dengan APK MYTHOS 2.40."
+            exit 1
+          fi
+
+          # Uji akses private key; password key sudah diverifikasi sama dengan store password.
+          keytool -certreq -alias "$KEY_ALIAS" -keystore "$KEYSTORE_FILE" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEYSTORE_PASSWORD" -file /dev/null >/dev/null 2>&1
+
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$KEYSTORE_FILE" "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEYSTORE_PASSWORD" > keystore.properties
+          chmod 600 keystore.properties
+          echo "Keystore valid: alias dan fingerprint cocok dengan APK MYTHOS 2.40."
 
       # APK dibangun dan diunggah DULU supaya hasilnya tetap ada walau ada tes yang gagal; tes dijalankan sesudahnya
       # dan kegagalannya tetap membuat job merah.

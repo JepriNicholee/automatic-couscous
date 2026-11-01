@@ -62,7 +62,7 @@ private val rules = listOf(
     rule(
         """No such file or directory|cannot access '[^']*'|can't cd to|cd: .*(not found|no such)|folder (proyek )?tidak ditemukan""",
         "path salah: file atau folder tidak ada di lokasi yang dituju (path relatif dihitung dari folder kerja, bukan dari lokasi sebelumnya)",
-        "Jangan menebak path. Jalankan pwd && ls untuk melihat lokasi sekarang, lalu ls projects/aktif (proyek yang dikerjakan) dan ls reference (source resmi, hanya baca). Folder kerja aplikasi adalah ~/MYTHOS; proyek ada di projects/aktif/<nama-kebab-case>. Pakai path persis seperti yang dikembalikan create_android_project."
+        "Jangan menebak path. Jalankan pwd && ls untuk melihat folder kerja aktif, lalu ls projects/aktif (proyek yang dikerjakan) dan baca path reference yang tercantum pada peta path di prompt. Path relatif dihitung dari folder kerja yang dipilih; proyek ada di projects/aktif/<nama-kebab-case>. Pakai path persis seperti yang dikembalikan create_android_project."
     ),
     rule(
         """Permission denied|EACCES|Operation not permitted""",

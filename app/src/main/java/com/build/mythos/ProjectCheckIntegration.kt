@@ -23,13 +23,25 @@ internal fun MainActivity.toolValidateProject(args: JSONObject, card: MainActivi
         card.finish(false, "validasi gagal", msg, StepState.FAIL)
         return "exit=1 $msg"
     }
-    // Fakta dari pengaturan aplikasi (bukan dari folder): token dan repo GitHub dibutuhkan build_apk.
+    // Fakta autentikasi: build_apk menerima token aplikasi atau sesi gh CLI yang sudah login di Termux.
     val extra = ArrayList<String>()
     if (isProtectedReferencePath(absPath(dir))) {
         extra.add("folder ini di MYTHOS/reference (hanya baca): salin ke projects/aktif sebelum mengubah atau membangun")
     }
     if (prefs.getString("github_token", "").isNullOrBlank()) {
-        extra.add("Token GitHub belum diisi di Pengaturan: build_apk akan gagal pada pemeriksaan autentikasi")
+        // build_apk mendukung autentikasi gh CLI yang sudah ada di Termux; jangan salah menandainya
+        // belum siap hanya karena token tidak disimpan ulang di preferensi Android.
+        val termuxGhReady = if (!sandboxEnabled()) {
+            try {
+                termux(
+                    "command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1",
+                    limit = 200, timeoutSec = 10, useWorkdir = false, killable = false
+                ).startsWith("exit=0")
+            } catch (_: Exception) { false }
+        } else false
+        if (!termuxGhReady) {
+            extra.add("Autentikasi GitHub belum tersedia: isi Token GitHub di Pengaturan atau jalankan gh auth login di Termux")
+        }
     }
     val text = ProjectCheck.render(report, extra)
     val ok = report.ready
