@@ -11,7 +11,7 @@ import android.provider.OpenableColumns
 import java.io.File
 import java.util.UUID
 
-// Lampirkan file dari penyimpanan HP ke MYTHOS/attachments.
+// Lampirkan file dari penyimpanan HP ke folder attachments workspace.
 // Fungsi-fungsi di sini adalah ekstensi MainActivity (dipecah dari MainActivity.kt).
 
 internal fun MainActivity.pickFile() {
@@ -82,19 +82,21 @@ internal fun MainActivity.copyToDownload(uri: Uri, name: String): StagedAttachme
     }
 }
 
-/** Tahap kedua: salin dari penyimpanan bersama ke workspace Termux MYTHOS/attachments. */
+/** Tahap kedua: salin dari penyimpanan bersama ke folder attachments workspace Termux. */
 internal fun MainActivity.copyToMythosAttachments(uri: Uri, name: String): String {
     val staged = copyToDownload(uri, name)
     val finalName = staged.path.substringAfterLast('/')
-    val target = "$termuxHome/MYTHOS/attachments/$finalName"
+    val attachmentsRoot = "${workspaceRoot()}/attachments"
+    val target = "$attachmentsRoot/$finalName"
     try {
+        referencePathGuard(target)?.let { throw RuntimeException(it) }
         val r = termux(
-            "mkdir -p ${sh(termuxHome + "/MYTHOS/attachments")} && " +
+            "mkdir -p ${sh(attachmentsRoot)} && " +
                 "cp -f ${sh(staged.path)} ${sh(target)} && echo MYTHOS_ATTACHMENT=ok",
             limit = 2000, timeoutSec = 120
         )
         if (!r.startsWith("exit=0") || !r.contains("MYTHOS_ATTACHMENT=ok")) {
-            throw RuntimeException("Gagal menyalin ke MYTHOS/attachments")
+            throw RuntimeException("Gagal menyalin ke folder attachments workspace")
         }
         return target
     } finally {
@@ -179,7 +181,7 @@ private fun termuxBody(r: String): String? = if (r.startsWith("exit=0")) r.subst
 
 /**
  * Isi att.digest, att.summary, dan att.extractedDir dari isi file: teks dibaca langsung, docx diekstrak teksnya,
- * pdf lewat pdftotext di Termux, zip dipindai (manifest) lalu diekstrak ke MYTHOS/projects/aktif. Dipanggil di thread latar.
+ * pdf lewat pdftotext di Termux, zip dipindai (manifest) lalu diekstrak ke projects/aktif pada workspace. Dipanggil di thread latar.
  */
 internal fun MainActivity.analyzeAttachment(att: Attachment, uri: Uri, termuxPath: String) {
     val name = att.name
@@ -236,12 +238,23 @@ private fun MainActivity.analyzeZip(att: Attachment, uri: Uri, termuxPath: Strin
     var note = ""
     if (scan.safeToExtract && scan.files.isNotEmpty()) {
         try {
-            val r = termux(
-                buildExtractCommand(termuxPath, "$termuxHome/MYTHOS/projects/aktif", safeFolderName(att.name)) { sh(it) },
-                limit = 2000, timeoutSec = 300
-            )
-            dir = parseExtractDir(r)
-            if (dir == null) note = "Ekstraksi otomatis gagal. Ekstrak sendiri dengan unzip dari path zip."
+            val extractionTarget = "${workspaceRoot()}/projects/aktif/${safeFolderName(att.name)}"
+            val blocked = referencePathGuard(extractionTarget)
+            if (blocked != null) {
+                note = "Ekstraksi diblokir karena lokasi tujuan tidak aman: $blocked"
+            } else {
+                val r = termux(
+                    buildExtractCommand(
+                        termuxPath,
+                        "${workspaceRoot()}/projects/aktif",
+                        safeFolderName(att.name),
+                        protectedRoot = referenceRoot()
+                    ) { sh(it) },
+                    limit = 2000, timeoutSec = 300
+                )
+                dir = parseExtractDir(r)
+                if (dir == null) note = "Ekstraksi otomatis gagal. Ekstrak sendiri dengan unzip dari path zip."
+            }
         } catch (e: Exception) {
             note = "Ekstraksi otomatis gagal. Ekstrak sendiri dengan unzip dari path zip."
         }

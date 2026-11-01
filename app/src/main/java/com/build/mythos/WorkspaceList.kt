@@ -5,7 +5,7 @@ import org.json.JSONObject
 // Logika murni (tanpa android.*) untuk halaman Proyek dan Artefak: membaca keluaran daftar folder/file dari Termux,
 // mencatat file buatan agen, dan format tampilan. Diuji di WorkspaceListTest.
 
-/** Satu folder proyek di MYTHOS/projects/aktif atau projects/arsip. */
+/** Satu folder proyek di projects/aktif atau projects/arsip pada workspace aktif. */
 internal class ProjectEntry(val name: String, val archived: Boolean, val modified: Long)
 
 /** Satu file hasil kerja agen (path absolut di Termux). */

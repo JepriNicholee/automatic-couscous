@@ -7,7 +7,7 @@ import java.io.File
 
 private val memLock = Any()
 
-// Cadangan di Termux (~/MYTHOS/memory/chat_memory.json). filesDir aplikasi ikut hilang bila aplikasi dihapus-pasang ulang
+// Cadangan di Termux pada memory/chat_memory.json di workspace aktif. filesDir aplikasi ikut hilang bila aplikasi dihapus-pasang ulang
 // (mis. upgrade dengan tanda tangan berbeda); folder rumah Termux tidak. Dipulihkan otomatis saat aplikasi dibuka.
 private val mirrorLock = Any()
 private var mirrorBusy = false
@@ -18,7 +18,7 @@ private var restoredThisProcess = false
 @Volatile private var restoreDone = false
 private const val MIRROR_MIN_GAP_MS = 60_000L
 
-internal fun MainActivity.memoryMirrorPath(): String = "$termuxHome/MYTHOS/memory/chat_memory.json"
+internal fun MainActivity.memoryMirrorPath(): String = "${workspaceRoot()}/memory/chat_memory.json"
 
 internal fun MainActivity.memoryFile(): File = File(File(filesDir, "memory").also { it.mkdirs() }, "chat_memory.json")
 
@@ -43,7 +43,17 @@ internal fun MainActivity.clearMemory() {
     synchronized(memLock) { try { memoryFile().delete() } catch (e: Exception) { logQuiet("ChatMemoryStore.kt", e) } }
     // Cadangan ikut dihapus; kalau tidak, memori yang sengaja dihapus akan dipulihkan lagi saat aplikasi dibuka.
     lastMirrorHash = 0
-    bg { try { termux("rm -f ${sh(memoryMirrorPath())}") } catch (e: Throwable) { logQuiet("ChatMemoryStore.kt", e) } }
+    bg {
+        try {
+            val paths = listOf(memoryMirrorPath(), "$termuxHome/MYTHOS/memory/chat_memory.json").distinct()
+            val blocked = referencePathsGuard(paths)
+            if (blocked != null) {
+                logQuiet("ChatMemoryStore.kt", IllegalStateException("Penghapusan cadangan memori diblokir: $blocked"))
+                return@bg
+            }
+            termux("rm -f " + paths.joinToString(" ") { sh(it) }, useWorkdir = false)
+        } catch (e: Throwable) { logQuiet("ChatMemoryStore.kt", e) }
+    }
 }
 
 /** Salin memori ke Termux di latar. Dibatasi sekali per menit dan dilewati bila isinya tidak berubah; gagal (Termux tidak ada) diam saja. */
@@ -75,8 +85,13 @@ internal fun MainActivity.restoreMemoryFromMirrorOnce() {
     restoredThisProcess = true
     bg {
         try {
-            val text = readOld(memoryMirrorPath())
+            var text = readOld(memoryMirrorPath())
             if (text == null) { restoredThisProcess = false; return@bg } // tidak terbaca: jangan anggap selesai
+            if (text.isBlank() && memoryMirrorPath() != "$termuxHome/MYTHOS/memory/chat_memory.json") {
+                val legacy = readOld("$termuxHome/MYTHOS/memory/chat_memory.json")
+                if (legacy == null) { restoredThisProcess = false; return@bg }
+                if (legacy.isNotBlank()) text = legacy
+            }
             if (text.isNotBlank()) {
                 val remote = ChatMemory.fromJson(text)
                 if (remote.isNotEmpty()) synchronized(memLock) {

@@ -262,11 +262,27 @@ internal fun safeFolderName(zipName: String): String {
 }
 
 /** Skrip Termux: pilih folder tujuan yang belum ada di [parent], ekstrak zip ke sana, lalu cetak MYTHOS_UNZIP_DIR=... Semua path sudah dikutip lewat [quote]. */
-internal fun buildExtractCommand(zipPath: String, parent: String, base: String, quote: (String) -> String): String =
-    "P=${quote(parent)}; B=${quote(base)}; Z=${quote(zipPath)}; " +
-        "mkdir -p \"\$P\"; d=\"\$P/\$B\"; n=2; " +
-        "while [ -e \"\$d\" ]; do d=\"\$P/\$B-\$n\"; n=\$((n+1)); done; " +
-        "mkdir -p \"\$d\"; " +
+internal fun buildExtractCommand(
+    zipPath: String,
+    parent: String,
+    base: String,
+    protectedRoot: String? = null,
+    quote: (String) -> String
+): String {
+    val guard = if (protectedRoot == null) "" else
+        "R=${quote(protectedRoot)}; command -v realpath >/dev/null 2>&1 || { echo MYTHOS_PATH_GUARD_UNAVAILABLE; exit 90; }; " +
+            "ref=\$(realpath -m -- \"\$R\") || { echo MYTHOS_PATH_GUARD_ERROR; exit 91; }; "
+    val parentGuard = if (protectedRoot == null) "" else
+        "parent_real=\$(realpath -m -- \"\$P\") || { echo MYTHOS_PATH_GUARD_ERROR; exit 91; }; " +
+            "case \"\$parent_real\" in \"\$ref\"|\"\$ref\"/*) echo MYTHOS_REFERENCE_BLOCKED; exit 92;; esac; "
+    val targetGuard = if (protectedRoot == null) "" else
+        "target_real=\$(realpath -m -- \"\$d\") || { echo MYTHOS_PATH_GUARD_ERROR; exit 91; }; " +
+            "case \"\$target_real\" in \"\$ref\"|\"\$ref\"/*) echo MYTHOS_REFERENCE_BLOCKED; exit 92;; esac; "
+    return "P=${quote(parent)}; B=${quote(base)}; Z=${quote(zipPath)}; " + guard +
+        parentGuard + "mkdir -p \"\$P\" || exit \$?; " + parentGuard +
+        "d=\"\$P/\$B\"; n=2; " +
+        "while [ -e \"\$d\" ] || [ -L \"\$d\" ]; do d=\"\$P/\$B-\$n\"; n=\$((n+1)); done; " +
+        targetGuard + "mkdir -p \"\$d\" || exit \$?; " + targetGuard +
         "if command -v unzip >/dev/null 2>&1; then " +
         "unzip -o -q -d \"\$d\" \"\$Z\" -x '.git/*' '*/.git/*' 'node_modules/*' '*/node_modules/*'; rc=\$?; [ \$rc -le 1 ] || exit \$rc; " +
         "elif command -v bsdtar >/dev/null 2>&1; then bsdtar -xf \"\$Z\" -C \"\$d\" || exit \$?; " +
@@ -274,6 +290,7 @@ internal fun buildExtractCommand(zipPath: String, parent: String, base: String, 
         "python3 -c 'import sys,zipfile;zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' \"\$Z\" \"\$d\" || exit \$?; " +
         "else echo MYTHOS_UNZIP=missing; exit 3; fi; " +
         "echo \"MYTHOS_UNZIP_DIR=\$d\""
+}
 
 /** Ambil folder hasil ekstrak dari keluaran skrip [buildExtractCommand]; null bila gagal. */
 internal fun parseExtractDir(output: String): String? =

@@ -378,7 +378,60 @@ internal fun MainActivity.showSettings() {
         }
     })
     var dialog: Dialog? = null
-    fun save() {
+    var checkingWorkdir = false
+    fun save(workdirConfirmed: Boolean = false) {
+        val selectedWorkdir = WorkspacePaths.normalizeSetting(wdir.text.toString())
+        val workdirError = WorkspacePaths.validationError(wdir.text.toString(), termuxHome)
+        if (selectedWorkdir == null || workdirError != null) {
+            wdir.error = workdirError ?: "Folder kerja tidak valid"
+            wdir.requestFocus()
+            return
+        }
+        if (!workdirConfirmed) {
+            if (checkingWorkdir) return
+            checkingWorkdir = true
+            wdir.isEnabled = false
+            val candidateRoot = WorkspacePaths.resolve(selectedWorkdir, termuxHome)
+            bg {
+                val probe = try {
+                    termux(
+                        WorkspacePaths.gitRootProbeCommand(candidateRoot) { sh(it) },
+                        limit = 500, timeoutSec = 15, useWorkdir = false, killable = false
+                    )
+                } catch (e: Exception) { "workdir check failed: ${e.message}" }
+                runOnUiThread {
+                    checkingWorkdir = false
+                    wdir.isEnabled = true
+                    if (dialog?.isShowing != true) return@runOnUiThread
+                    when {
+                        probe.startsWith("exit=0") && probe.contains("MYTHOS_WORKDIR_IN_GIT_REPO") -> {
+                            AlertDialog.Builder(this)
+                                .setTitle("Folder kerja berada di repository Git")
+                                .setMessage(
+                                    "Folder yang dipilih berada di dalam repository Git. Agen dapat membuat atau mengubah file di lokasi itu sesuai izin aplikasi. " +
+                                        "Memilihnya dapat menyebabkan source aplikasi ikut berubah. Sebaiknya gunakan folder kerja terpisah seperti ~/MYTHOS.\n\nTetap gunakan lokasi ini?"
+                                )
+                                .setNegativeButton("Batal", null)
+                                .setPositiveButton("Tetap gunakan") { _, _ -> save(workdirConfirmed = true) }
+                                .show()
+                        }
+                        probe.startsWith("exit=0") && probe.contains("MYTHOS_WORKDIR_NOT_IN_GIT_REPO") ->
+                            save(workdirConfirmed = true)
+                        else -> {
+                            AlertDialog.Builder(this)
+                                .setTitle("Lokasi belum dapat diverifikasi")
+                                .setMessage(
+                                    "Termux tidak dapat memastikan apakah folder ini berada di dalam repository Git. Periksa kembali path dan izin Termux. Jika kamu yakin ingin tetap menggunakannya, konfirmasi di bawah."
+                                )
+                                .setNegativeButton("Batal", null)
+                                .setPositiveButton("Tetap gunakan") { _, _ -> save(workdirConfirmed = true) }
+                                .show()
+                        }
+                    }
+                }
+            }
+            return
+        }
         val selectedGeminiModel = normalizeGeminiCliModel(mdl.text.toString())
         if (cur == "Gemini CLI (Google)" && !isValidGeminiCliModel(selectedGeminiModel)) {
             mdl.error = "Gunakan nama/ID model tanpa spasi atau karakter shell"
@@ -398,7 +451,7 @@ internal fun MainActivity.showSettings() {
             .putString("p_${cur}_base", base.text.toString().trim())
             .putString("p_${cur}_model", if (cur == "Gemini CLI (Google)") selectedGeminiModel else mdl.text.toString().trim())
             .putString("extra", extra.text.toString().trim())
-            .putString("workdir", wdir.text.toString().trim())
+            .putString("workdir", selectedWorkdir)
             .putString("github_repo_url", repoRef?.url.orEmpty())
             .remove("github_owner")
             .remove("github_repo")
@@ -421,6 +474,7 @@ internal fun MainActivity.showSettings() {
         }
         ed.putBoolean(Motion.PREF, motion.isChecked)
         ed.apply()
+        bg { try { ensureWorkspaceLayout() } catch (ignored: Exception) { logQuiet("SettingsDialog.kt", ignored) } }
         applyMotion(this, prefs)
         if (!wantsAutonomous || prefs.getBoolean("autonomous_ack", false)) {
             prefs.edit().putBoolean("autonomous", wantsAutonomous).apply()

@@ -181,7 +181,7 @@ internal fun MainActivity.renameChat(id: String, name: String) {
 @Synchronized
 internal fun MainActivity.eraseChatFiles(id: String) {
     try {
-        purgeChatAttachments(id) // salinan lampiran chat ini di MYTHOS/attachments dan catatan lampiran aktifnya
+        purgeChatAttachments(id) // salinan lampiran chat ini di folder attachments workspace dan catatan lampiran aktifnya
         val f = chatFile(id)
         if (f.exists()) {
             try { deleteChatImagePaths(ChatStore.imagePaths(ChatStore.parseFile(f.readText(), id, 0L).messages)) } catch (e: Exception) { logQuiet("ChatHistory.kt", e) }

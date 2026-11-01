@@ -15,7 +15,7 @@ import android.widget.TextView
 
 // Lampiran file: kartu di atas kolom input (badge tipe, nama, tombol ×), lalu keyboard terbuka untuk mengetik perintahnya.
 
-/** Satu lampiran. path masih null selama file disalin ke MYTHOS/attachments. */
+/** Satu lampiran. path masih null selama file disalin ke folder attachments workspace. */
 internal class Attachment(val name: String, val previewUri: Uri? = null, @Volatile var path: String? = null, @Volatile var previewPath: String? = null) {
     /** Jenis untuk catatan lampiran aktif: gambar, zip, pdf, docx, teks, atau file. */
     @Volatile var kind: String = attachmentKind(name)

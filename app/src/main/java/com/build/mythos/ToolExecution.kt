@@ -143,7 +143,7 @@ internal fun MainActivity.runTool(name: String, args: JSONObject, card: MainActi
             "Diblokir oleh sandbox: ${sb.reasons.joinToString("; ")}. Perintah TIDAK dijalankan. Gunakan pendekatan lain di dalam workdir sandbox."
         } else if (classify(cmd) != Risk.READ && touchesProtectedReferenceWrite(cmd)) {
             card.finish(false, "source reference terkunci", state = StepState.DENIED)
-            "Ditolak: folder MYTHOS/reference (source dan alat referensi) terkunci. Agen hanya boleh membaca atau menyalin source itu ke MYTHOS/projects/aktif."
+            "Ditolak: folder sumber MYTHOS/reference terkunci. Agen hanya boleh membaca atau menyalin source itu ke projects/aktif pada folder kerja."
         } else if (readOnlyMode() && classify(cmd) != Risk.READ) {
             card.finish(false, "mode hanya baca", state = StepState.DENIED)
             "Ditolak: mode hanya baca aktif. Hanya perintah yang membaca yang diizinkan."
@@ -201,15 +201,16 @@ internal fun MainActivity.runTool(name: String, args: JSONObject, card: MainActi
         val diff = if (old != null) buildDiff(old, content) else null
         val info = diff?.second ?: "${content.length} karakter"
         val abs = absPath(path)
-        val wdBase = (wdTarget(termuxHome) ?: termuxHome).trimEnd('/')
+        val pathGuard = if (!sandboxEnabled() && !readOnlyMode()) referencePathGuard(abs) else null
+        val wdBase = workspaceRoot().trimEnd('/')
         val warnW = sensitiveReason(abs) ?: if (TERMUX_SYSTEM.containsMatchIn(abs)) "folder sistem Termux" else null
             ?: if (abs == wdBase || abs.startsWith("$wdBase/")) null else "File ini di luar folder kerja"
         if (sandboxEnabled()) {
             card.finish(false, "mode sandbox", state = StepState.DENIED)
             "Ditolak: mode sandbox aktif, write_file menulis ke Termux utama (di luar sandbox). Tulis file lewat run_command di dalam workdir sandbox (mis. printf atau tee)."
-        } else if (isProtectedReferencePath(abs)) {
+        } else if (pathGuard != null) {
             card.finish(false, "source reference terkunci", state = StepState.DENIED)
-            "Ditolak: folder MYTHOS/reference (source dan alat referensi) hanya untuk dibaca dan disalin. Buat perubahan di MYTHOS/projects/aktif."
+            pathGuard
         } else if (readOnlyMode()) {
             card.finish(false, "mode hanya baca", state = StepState.DENIED)
             "Ditolak: mode hanya baca aktif. Jangan menulis atau mengubah file."
@@ -234,7 +235,7 @@ internal fun MainActivity.runTool(name: String, args: JSONObject, card: MainActi
                 sawFail = true
                 logApproved("tulis file", wCmd, wDesc, wRisk, mode, false, "Dibatalkan: cadangan file lama gagal dibuat")
                 card.finish(false, "cadangan gagal", state = StepState.FAIL)
-                "exit=1 Penulisan dibatalkan: file lama tidak bisa dicadangkan (cek ruang penyimpanan dan izin ~/.kita_bak). " +
+                "exit=1 Penulisan dibatalkan: file lama tidak bisa dicadangkan (cek ruang penyimpanan dan izin workspace/backups/.kita_bak). " +
                     "File TIDAK diubah. Coba lagi, atau tulis lewat run_command bila pengguna memang menginginkannya."
             } else {
                 val res = try {
@@ -265,13 +266,14 @@ internal fun MainActivity.runTool(name: String, args: JSONObject, card: MainActi
         val appName = StudioProject.safeName(args.optString("nama"))
         val pkg = StudioProject.safePackage(args.optString("package"))
         val desc = args.optString("deskripsi").ifBlank { "Membuat proyek Android" }
+        val pathGuard = if (folder != null && !sandboxEnabled() && !readOnlyMode()) referencePathGuard(absPath(folder)) else null
         if (folder == null || appName == null || pkg == null) {
             sawFail = true
             card.finish(false, "parameter tidak valid", state = StepState.FAIL)
             "exit=1 Parameter tidak valid. folder harus relatif tanpa '..'; nama harus berupa nama aplikasi sederhana; package harus seperti com.example.app."
-        } else if (isProtectedReferencePath(absPath(folder))) {
+        } else if (pathGuard != null) {
             card.finish(false, "source reference terkunci", state = StepState.DENIED)
-            "Ditolak: proyek baru tidak boleh dibuat di source reference. Gunakan folder MYTHOS/projects/aktif."
+            pathGuard
         } else if (readOnlyMode()) {
             card.finish(false, "mode hanya baca", state = StepState.DENIED)
             "Ditolak: mode hanya baca aktif. Pembuatan proyek menulis banyak file."
@@ -288,7 +290,7 @@ internal fun MainActivity.runTool(name: String, args: JSONObject, card: MainActi
             val tail = LiveTail(this, liveFile, pollMs = 1000L) { card.liveOutput(it) }
             tail.start()
             val out = try {
-                val cmd = StudioProject.setupCommand(folder, appName, pkg)
+                val cmd = StudioProject.setupCommand(folder, appName, pkg, homeShort(workspaceRoot()))
                 if (sandboxEnabled()) runInSandbox(cmd, false, liveFile)
                 else termux(cmd, limit = 12000, timeoutSec = 120, liveFile = liveFile)
             } finally { tail.stop() }
@@ -311,13 +313,14 @@ internal fun MainActivity.runTool(name: String, args: JSONObject, card: MainActi
         val dir = BuildApk.safeFolder(args.optString("folder"))
         val bDesc = args.optString("deskripsi").ifBlank { "Membangun APK" }
         val bFolderProblem = folderArgProblem("build_apk", args.optString("folder"))
+        val pathGuard = if (dir != null && !sandboxEnabled() && !readOnlyMode()) referencePathGuard(absPath(dir)) else null
         if (dir == null || bFolderProblem != null) {
             sawFail = true
             card.finish(false, "folder tidak valid", state = StepState.FAIL)
             "exit=1 " + (bFolderProblem ?: "Folder tidak valid: pakai path relatif terhadap folder kerja (huruf, angka, _ . / -), tanpa '..' dan tanpa awalan /. Gunakan '.' untuk folder kerja.")
-        } else if (isProtectedReferencePath(absPath(dir))) {
+        } else if (pathGuard != null) {
             card.finish(false, "source reference terkunci", state = StepState.DENIED)
-            "Ditolak: build tidak boleh menulis ke source reference. Salin source ke MYTHOS/projects/aktif terlebih dahulu."
+            pathGuard
         } else if (readOnlyMode()) {
             card.finish(false, "mode hanya baca", state = StepState.DENIED)
             "Ditolak: mode hanya baca aktif. Build menulis file, jadi tidak diizinkan."

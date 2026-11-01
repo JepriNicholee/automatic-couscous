@@ -15,7 +15,7 @@ import java.net.InetAddress
 import java.net.ServerSocket
 import java.util.UUID
 
-// Halaman "Artefak": file yang dibuat agen (write_file, APK hasil build) dan isi MYTHOS/artifacts.
+// Halaman "Artefak": file yang dibuat agen (write_file, APK hasil build) dan isi artifacts pada workspace aktif.
 // Bisa dibuka, dibagikan, disalin path-nya, atau dihapus. Ekstensi MainActivity.
 
 private const val MAX_SHARE_BYTES = 25L * 1024 * 1024
@@ -129,7 +129,10 @@ private class ArtifactsPage(val a: MainActivity) {
     fun delete(f: FileEntry) {
         if (!f.path.startsWith("${a.termuxHome}/") || a.isProtectedReferencePath(f.path)) { a.toast("File ini tidak boleh dihapus dari sini"); return }
         bg {
-            val r = try { a.termux("rm -f -- ${a.sh(f.path)} && echo DELETED", useWorkdir = false, timeoutSec = 30) } catch (e: Exception) { "gagal: ${e.message}" }
+            val r = try {
+                val blocked = a.referencePathGuard(f.path)
+                if (blocked != null) "exit=1 $blocked" else a.termux("rm -f -- ${a.sh(f.path)} && echo DELETED", useWorkdir = false, timeoutSec = 30)
+            } catch (e: Exception) { "gagal: ${e.message}" }
             val ok = r.contains("DELETED")
             if (ok) a.forgetArtifacts(listOf(f.path))
             a.runOnUiThread {

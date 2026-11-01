@@ -6,12 +6,12 @@ import java.util.Locale
 import java.util.TimeZone
 
 /**
- * Log pusat kegagalan alat agen di MYTHOS/logs/error_summary.log (satu baris per kegagalan).
+ * Log pusat kegagalan alat agen di logs/error_summary.log pada workspace aktif (satu baris per kegagalan).
  * Agen bisa membacanya (cat/tail) untuk analisis akar masalah tanpa menebak dari potongan keluaran.
  * Bagian murni JVM supaya bisa diuji; penulisan ke Termux ada di MainActivity.logErrorSummary.
  */
 internal object ErrorSummaryLog {
-    const val DIR = "MYTHOS/logs"
+    const val DIR = "logs"
     const val FILE = "$DIR/error_summary.log"
     const val MAX_LINES = 500
     private const val MAX_DETAIL = 400
@@ -39,8 +39,10 @@ internal object ErrorSummaryLog {
 internal fun MainActivity.logErrorSummary(tool: String, kind: String, detail: String) {
     try {
         val l = ErrorSummaryLog.line(System.currentTimeMillis(), tool, kind, detail)
+        val path = "${workspaceRoot()}/${ErrorSummaryLog.FILE}"
+        if (referencePathGuard(path) != null) return
         termux(
-            ErrorSummaryLog.appendCommand("$termuxHome/${ErrorSummaryLog.FILE}", l),
+            ErrorSummaryLog.appendCommand(path, l),
             limit = 200, timeoutSec = 10, useWorkdir = false, killable = false, silentRetry = true
         )
     } catch (ignored: Exception) {
