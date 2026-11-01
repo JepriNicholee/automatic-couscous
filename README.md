@@ -9,6 +9,11 @@ dengan persetujuan pengguna untuk tindakan berisiko.
 ./gradlew assembleDebug       # APK debug -> app/build/outputs/apk/debug/
 ./gradlew lintDebug           # lint (hasil: app/build/reports/)
 ```
+Build satu perintah di Linux (menyiapkan Android SDK Platform 34 dan Build Tools 34.0.0 bila belum ada):
+```bash
+./build.sh                    # pertama kali akan meminta persetujuan lisensi Android SDK
+```
+Perlu JDK 17+, `curl`, `unzip`, dan koneksi internet untuk penyiapan awal. Untuk Termux, gunakan `bash build-termux.sh`.
 Build di GitHub Actions: `.github/workflows/build-apk.yml` (push, pull request, manual).
 Penandatanganan rilis: salin `keystore.properties.example` menjadi `keystore.properties`
 (jangan di-commit; sudah ada di `.gitignore`).
