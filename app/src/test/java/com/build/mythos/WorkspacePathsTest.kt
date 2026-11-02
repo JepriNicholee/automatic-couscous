@@ -41,7 +41,9 @@ class WorkspacePathsTest {
         assertTrue(script.contains("[ -d \"\$probe/.git\" ]"))
         assertTrue(script.contains("[ -f \"\$probe/.git\" ]"))
         assertTrue(script.contains("MYTHOS_WORKDIR_IN_GIT_REPO"))
+        assertTrue(script.contains("MYTHOS_WORKDIR_PROTECTED_SOURCE"))
         assertTrue(script.contains("MYTHOS_WORKDIR_NOT_IN_GIT_REPO"))
+        assertTrue(script.contains("github\\.com[:/]JepriNicholee/automatic-couscous"))
     }
 
     @Test fun referenceGuardUsesCanonicalPathsAndFailsClosed() {

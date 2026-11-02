@@ -377,6 +377,10 @@ internal fun MainActivity.runTool(name: String, args: JSONObject, card: MainActi
             else middleTrim(out, 8000)
         }
     }
+    "source_repo_tree" -> toolSourceRepoTree(args, card)
+    "source_repo_read" -> toolSourceRepoRead(args, card)
+    "agent_git_check" -> toolAgentGitCheck(card)
+    "agent_git_push" -> toolAgentGitPush(args, card)
     "cari_web" -> toolCariWeb(args, card)
     "baca_web" -> toolBacaWeb(args, card)
     "berangkas_baca" -> toolBerangkasBaca(args, card)

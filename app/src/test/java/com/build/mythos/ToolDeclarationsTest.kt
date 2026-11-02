@@ -13,6 +13,14 @@ class ToolDeclarationsTest {
         }
     }
 
+    @Test fun sourceReaderAndGitControllerAreBuiltinAndDocumented() {
+        for (n in listOf("source_repo_tree", "source_repo_read", "agent_git_check", "agent_git_push")) {
+            assertTrue("$n harus bawaan", n in CustomTools.BUILTIN)
+            assertTrue("$n harus ada di ToolDocs.NAMES", n in ToolDocs.NAMES)
+            assertTrue("$n harus ada di ToolDocs.SIGNATURES", ToolDocs.SIGNATURES.any { it.startsWith("$n(") })
+        }
+    }
+
     @Test fun tavilyToolIsGone() {
         assertFalse("web_search" in ToolDocs.NAMES)
         assertFalse("web_search" in CustomTools.BUILTIN)

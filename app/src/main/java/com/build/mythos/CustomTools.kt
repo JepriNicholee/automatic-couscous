@@ -18,7 +18,8 @@ internal object CustomTools {
     /** Nama alat bawaan: tidak boleh ditimpa alat buatan. */
     val BUILTIN = setOf(
         "run_command", "write_file", "create_android_project", "validate_project",
-        "build_apk", "self_audit", "self_upgrade", "ask_user", "create_tool", "delete_tool", "cari_web", "baca_web"
+        "build_apk", "self_audit", "self_upgrade", "ask_user", "create_tool", "delete_tool", "cari_web", "baca_web",
+        "source_repo_tree", "source_repo_read", "agent_git_check", "agent_git_push"
     ) + CONNECTOR_TOOL_NAMES
 
     private val NAME_RE = Regex("^[a-z][a-z0-9_]{2,30}$")

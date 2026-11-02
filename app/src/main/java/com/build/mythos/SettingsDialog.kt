@@ -84,7 +84,7 @@ internal fun MainActivity.showSettings() {
         setText(prefs.getString("workdir", "MYTHOS"))
     }
     val ghToken = EditText(this).apply {
-        hint = "Token GitHub (disimpan terenkripsi)"
+        hint = "Token GitHub untuk build APK (disimpan terenkripsi)"
         inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         val saved = when (val r = Secret.decrypt(prefs.getString("github_token", "") ?: "")) {
             is SecretDecryptResult.Success -> r.value
@@ -99,6 +99,27 @@ internal fun MainActivity.showSettings() {
         val legacy = parseRepoLink(prefs.getString("github_owner", "").orEmpty() + "/" + prefs.getString("github_repo", "").orEmpty())?.url.orEmpty()
         setText(prefs.getString("github_repo_url", "").orEmpty().ifBlank { legacy })
     }
+    // Git target for the agent is deliberately separate from the legacy GitHub settings used by build_apk.
+    val agentRepo = EditText(this).apply {
+        hint = "Repository tujuan agen, contoh: https://github.com/akun/proyek"
+        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+        setText(prefs.getString(GitAgentPolicy.REPO_PREF, "").orEmpty())
+    }
+    val agentBranch = EditText(this).apply {
+        hint = "Branch tujuan agen"
+        inputType = InputType.TYPE_CLASS_TEXT
+        setText(prefs.getString(GitAgentPolicy.BRANCH_PREF, GitAgentPolicy.DEFAULT_AGENT_BRANCH).orEmpty().ifBlank { GitAgentPolicy.DEFAULT_AGENT_BRANCH })
+    }
+    val agentToken = EditText(this).apply {
+        hint = "Token Git agen baru (kosong = pertahankan token tersimpan)"
+        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+    }
+    val sourceRepoInfo = TextView(this).apply {
+        text = "JepriNicholee/automatic-couscous · main\nDilayani melalui GitHub API; agen hanya dapat membaca. Repository ini tidak dapat dipilih sebagai tujuan push. Token Git Controller dienkripsi memakai Android Keystore dan tidak ditempelkan ke perintah Termux atau payload model."
+        textSize = 12.5f
+        setTextColor(Palette.INK_SOFT)
+        setPadding(dp(4), dp(4), dp(4), dp(8))
+    }
     val extra = EditText(this).apply {
         hint = "Instruksi tambahan untuk AI (opsional)"
         inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
@@ -106,7 +127,7 @@ internal fun MainActivity.showSettings() {
         gravity = Gravity.TOP
         setText(prefs.getString("extra", ""))
     }
-    for (f in listOf(base, key, mdl, wdir, ghRepo, ghToken, extra)) styleField(f)
+    for (f in listOf(base, key, mdl, wdir, ghRepo, ghToken, agentRepo, agentBranch, agentToken, extra)) styleField(f)
 
     /** Satu baris pengaturan: judul + keterangan singkat + saklar. */
     fun toggleRow(title: String, hint: String, on: Boolean): Pair<View, Switch> {
@@ -126,6 +147,11 @@ internal fun MainActivity.showSettings() {
         }
         return row to sw
     }
+    val (deleteAgentTokenRow, deleteAgentToken) = toggleRow(
+        "Hapus token Git agen tersimpan",
+        "Hanya aktifkan bila benar-benar ingin menghapus token aplikasi",
+        false
+    )
     val (autoRow, auto) = toggleRow("Setujui otomatis perintah baca", "ls, cat, grep jalan tanpa bertanya", prefs.getBoolean("autoread", true))
     val (roRow, ro) = toggleRow("Mode hanya baca", "AI tidak boleh menulis atau menghapus", prefs.getBoolean("readonly", false))
     val (autonomousRow, autonomous) = toggleRow("Mode otonom", "AI bertindak tanpa persetujuan (berisiko)", prefs.getBoolean("autonomous", false))
@@ -246,6 +272,14 @@ internal fun MainActivity.showSettings() {
         addView(fieldLabel("GitHub (opsional, untuk build APK)"))
         addView(ghRepo)
         addView(ghToken)
+        addView(divider(), LinearLayout.LayoutParams(MATCH, dp(1)).apply { topMargin = dp(14); bottomMargin = dp(10) })
+        addView(fieldLabel("Repository sumber MYTHOS · baca saja"))
+        addView(sourceRepoInfo)
+        addView(fieldLabel("Repository tujuan Git agen"))
+        addView(agentRepo)
+        addView(agentBranch)
+        addView(agentToken)
+        addView(deleteAgentTokenRow)
         // "Setujui otomatis perintah baca" (autoRow) tidak ditampilkan: sudah tercakup "Konfirmasi seperlunya".
         // Nilainya tetap dibaca dan disimpan (bawaan aktif), jadi perilaku tidak berubah.
         addView(roRow)
@@ -405,18 +439,14 @@ internal fun MainActivity.showSettings() {
                     wdir.isEnabled = true
                     if (dialog?.isShowing != true) return@runOnUiThread
                     when {
-                        probe.startsWith("exit=0") && probe.contains("MYTHOS_WORKDIR_IN_GIT_REPO") -> {
+                        probe.startsWith("exit=0") && probe.contains("MYTHOS_WORKDIR_PROTECTED_SOURCE") -> {
                             AlertDialog.Builder(this)
-                                .setTitle("Folder kerja berada di repository Git")
-                                .setMessage(
-                                    "Folder yang dipilih berada di dalam repository Git. Agen dapat membuat atau mengubah file di lokasi itu sesuai izin aplikasi. " +
-                                        "Memilihnya dapat menyebabkan source aplikasi ikut berubah. Sebaiknya gunakan folder kerja terpisah seperti ~/MYTHOS.\n\nTetap gunakan lokasi ini?"
-                                )
-                                .setNegativeButton("Batal", null)
-                                .setPositiveButton("Tetap gunakan") { _, _ -> save(workdirConfirmed = true) }
+                                .setTitle("Repository sumber MYTHOS dilindungi")
+                                .setMessage("Folder kerja berada di checkout repository sumber MYTHOS. Lokasi ini tidak boleh dipakai sebagai workspace agen. Pilih folder terpisah seperti ~/MYTHOS.")
+                                .setPositiveButton("Mengerti", null)
                                 .show()
                         }
-                        probe.startsWith("exit=0") && probe.contains("MYTHOS_WORKDIR_NOT_IN_GIT_REPO") ->
+                        probe.startsWith("exit=0") && (probe.contains("MYTHOS_WORKDIR_IN_GIT_REPO") || probe.contains("MYTHOS_WORKDIR_NOT_IN_GIT_REPO")) ->
                             save(workdirConfirmed = true)
                         else -> {
                             AlertDialog.Builder(this)
@@ -439,14 +469,31 @@ internal fun MainActivity.showSettings() {
             mdl.requestFocus()
             return
         }
-        dialog?.dismiss()
-        prov = cur
         val wantsAutonomous = autonomous.isChecked
         val normalizedKey = normalizeKey(key.text.toString())
         val encryptedKey = Secret.encrypt(normalizedKey)
         val repoText = ghRepo.text.toString().trim()
         val repoRef = parseRepoLink(repoText)
-        if (repoText.isNotEmpty() && repoRef == null) toast("Link repository GitHub tidak valid, tidak disimpan")
+        if (repoText.isNotEmpty() && repoRef == null) toast("Link repository GitHub untuk build APK tidak valid, tidak disimpan")
+
+        val agentRepoText = agentRepo.text.toString().trim()
+        val agentRepoRef = parseRepoLink(agentRepoText)
+        if (agentRepoText.isNotEmpty() && agentRepoRef == null) {
+            agentRepo.error = "Masukkan link GitHub owner/repository yang valid"
+            agentRepo.requestFocus()
+            return
+        }
+        if (agentRepoRef != null && GitAgentPolicy.isSource(agentRepoRef)) {
+            agentRepo.error = "Repository sumber MYTHOS dilindungi dan tidak boleh menjadi tujuan agen"
+            agentRepo.requestFocus()
+            return
+        }
+        val agentBranchText = agentBranch.text.toString().trim().ifBlank { GitAgentPolicy.DEFAULT_AGENT_BRANCH }
+        if (!GitAgentPolicy.validBranch(agentBranchText)) {
+            agentBranch.error = "Nama branch Git tidak valid"
+            agentBranch.requestFocus()
+            return
+        }
         val ed = prefs.edit()
             .putString("prov", cur)
             .putString("p_${cur}_base", base.text.toString().trim())
@@ -454,6 +501,8 @@ internal fun MainActivity.showSettings() {
             .putString("extra", extra.text.toString().trim())
             .putString("workdir", selectedWorkdir)
             .putString("github_repo_url", repoRef?.url.orEmpty())
+            .putString(GitAgentPolicy.REPO_PREF, agentRepoRef?.url.orEmpty())
+            .putString(GitAgentPolicy.BRANCH_PREF, agentBranchText)
             .remove("github_owner")
             .remove("github_repo")
             .remove("github_private")
@@ -473,7 +522,20 @@ internal fun MainActivity.showSettings() {
         } else {
             toast("Token GitHub tidak dapat diamankan. Token tidak disimpan.")
         }
+        val agentTokenText = agentToken.text.toString().trim()
+        if (agentTokenText.isNotBlank()) {
+            val encryptedAgentToken = Secret.encrypt(agentTokenText)
+            if (encryptedAgentToken.isSuccess) ed.putString(GitAgentPolicy.TOKEN_PREF, encryptedAgentToken.getOrThrow())
+            else {
+                toast("Token Git agen tidak dapat diamankan oleh Android Keystore. Token tidak disimpan.")
+                return
+            }
+        } else if (deleteAgentToken.isChecked) {
+            ed.remove(GitAgentPolicy.TOKEN_PREF)
+        }
         ed.putBoolean(Motion.PREF, motion.isChecked)
+        dialog?.dismiss()
+        prov = cur
         ed.apply()
         bg { try { ensureWorkspaceLayout() } catch (ignored: Exception) { logQuiet("SettingsDialog.kt", ignored) } }
         if (prefs.getBoolean("termux_sync_enabled", false)) {

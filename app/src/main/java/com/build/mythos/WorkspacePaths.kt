@@ -59,12 +59,21 @@ internal object WorkspacePaths {
     }
 
 
-    /** Skrip baca-saja untuk mengenali apakah direktori pilihan berada di dalam repository Git. */
+    /**
+     * Read-only workspace probe. A normal Git workspace is allowed; only a checkout whose remote
+     * identifies the protected MYTHOS source repository is rejected.
+     */
     fun gitRootProbeCommand(workspaceRoot: String, quote: (String) -> String): String =
         "target=\$(realpath -m -- ${quote(workspaceRoot)}) || { echo MYTHOS_WORKDIR_CHECK_FAILED; exit 90; }; " +
-            "probe=\$target; while [ -n \"\$probe\" ] && [ \"\$probe\" != / ]; do " +
-            "if [ -d \"\$probe/.git\" ] || [ -f \"\$probe/.git\" ]; then echo MYTHOS_WORKDIR_IN_GIT_REPO; exit 0; fi; " +
-            "probe=\$(dirname \"\$probe\"); done; echo MYTHOS_WORKDIR_NOT_IN_GIT_REPO"
+            "probe=\$target; found_git=0; protected_source=0; while [ -n \"\$probe\" ] && [ \"\$probe\" != / ]; do " +
+            "if [ -d \"\$probe/.git\" ] || [ -f \"\$probe/.git\" ]; then found_git=1; " +
+            "remotes=\$(git -C \"\$probe\" remote -v 2>/dev/null || true); " +
+            "if printf '%s\\n' \"\$remotes\" | grep -Eqi 'github\\.com[:/]JepriNicholee/automatic-couscous(\\.git)?([[:space:]]|$)'; then protected_source=1; fi; fi; " +
+            "probe=\$(dirname \"\$probe\"); done; " +
+            "if [ \"\$protected_source\" = 1 ]; then echo MYTHOS_WORKDIR_PROTECTED_SOURCE; " +
+            "elif [ \"\$found_git\" = 1 ]; then echo MYTHOS_WORKDIR_IN_GIT_REPO; " +
+            "else echo MYTHOS_WORKDIR_NOT_IN_GIT_REPO; fi"
+
 
     /** Skrip pemeriksaan Termux: semua target di-resolve melalui realpath sebelum operasi tulis. */
     fun referenceGuardCommand(paths: List<String>, referenceRoot: String, quote: (String) -> String): String {

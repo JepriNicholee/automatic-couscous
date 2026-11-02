@@ -250,6 +250,10 @@ internal fun MainActivity.statusFor(name: String, args: JSONObject): String {
     if (name == "build_apk") return "Membangun APK dari seluruh kode proyek"
     if (name == "cari_web") return "Mencari informasi terbaru di internet"
     if (name == "baca_web") return "Membaca isi halaman web untuk mengambil informasi"
+    if (name == "source_repo_tree") return "Memetakan file repository sumber MYTHOS melalui GitHub"
+    if (name == "source_repo_read") return "Membaca kode sumber MYTHOS dari GitHub"
+    if (name == "agent_git_check") return "Memeriksa repository tujuan Git agen"
+    if (name == "agent_git_push") return "Mengirim file proyek ke repository tujuan agen"
     if (name in CONNECTOR_TOOL_NAMES) return connectorStatus(name)
     if (name == "validate_project") return "Memeriksa struktur dan kelengkapan file proyek"
     if (name == "self_audit") return "Mengaudit kode aplikasi ini mencari masalah"
@@ -286,6 +290,14 @@ internal fun MainActivity.detailFor(name: String, args: JSONObject): String =
         "Baca halaman: " + args.optString("url").take(300)
     } else if (name == "build_apk") {
         BuildApk.displayDetail(args.optString("folder").ifBlank { "." })
+    } else if (name == "source_repo_tree") {
+        "Tree repository sumber MYTHOS: " + args.optString("prefix").ifBlank { "(seluruh repository)" }
+    } else if (name == "source_repo_read") {
+        "Baca source MYTHOS: " + args.optString("path").take(220)
+    } else if (name == "agent_git_check") {
+        "Periksa akses repository tujuan agen"
+    } else if (name == "agent_git_push") {
+        "Push ${args.optString("folder").ifBlank { "." }} → repository tujuan agen"
     } else if (name in CONNECTOR_TOOL_NAMES) {
         connectorDetail(name, args)
     } else if (name == "validate_project") {
@@ -345,6 +357,7 @@ internal fun agentToolItem(c: Call): JSONObject {
     return when (c.name) {
         "run_command" -> item.put("type", "commandExecution").put("command", a.optString("command"))
         "build_apk" -> item.put("type", "commandExecution").put("command", "./gradlew assembleDebug")
+        "source_repo_tree", "source_repo_read", "agent_git_check", "agent_git_push" -> item.put("type", "dynamicToolCall").put("tool", c.name)
         "write_file" -> item.put("type", "fileChange").put(
             "changes", org.json.JSONArray().put(JSONObject().put("path", a.optString("path")).put("kind", "update"))
         )
