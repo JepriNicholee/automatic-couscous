@@ -1,0 +1,9 @@
+{
+  "name": "mythos-validation",
+  "package": "com.build.mythos",
+  "type": "android-app",
+  "language": "kotlin",
+  "build": "github-actions (gradle assembleDebug)",
+  "main_dependencies": ["com.android.application 8.5.2", "kotlin-android 1.9.24"],
+  "folders": { "source": "app/src/main/java", "tests": "app/src/test/java", "workflow": ".github/workflows" }
+}
